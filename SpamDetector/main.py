@@ -1,0 +1,50 @@
+from spam_detector import SpamDetector
+from model import BERT_Arch, GPT_Arch
+from transformers import BertModel, OpenAIGPTModel, BertTokenizerFast, AutoTokenizer
+import torch
+import yaml
+from plotting_analytics import plot_loss_acc, model_performance
+
+import warnings
+warnings.filterwarnings('ignore')
+
+if __name__ == '__main__':
+    # check using GPU
+    print(torch.backends.mps.is_available())
+    print(torch.backends.mps.is_built())
+
+    # define variables 
+    with open("config.yaml", 'r') as f:
+        config = yaml.safe_load(f)
+    
+    args = config['spamDetector']
+    architecture = args['architecture']
+    path = f'{architecture}_saved_weights.pt'
+    folder = f'Trial_{architecture}'
+    device = torch.device("mps")
+
+    if architecture == 'gpt':
+        arch = OpenAIGPTModel.from_pretrained('openai-gpt')
+        tokenizer = AutoTokenizer.from_pretrained('openai-gpt')
+        model = GPT_Arch(arch, args['dropout']).to(device)
+    if architecture == 'bert':
+        arch = BertModel.from_pretrained('bert-base-uncased')
+        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+        model = BERT_Arch(arch, args['dropout']).to(device)
+    
+    # freeze all the parameters
+    for param in arch.parameters():
+        param.requires_grad = False
+    
+    # train model with training and validation datasets
+    spamDetector = SpamDetector(model=model, tokenizer=tokenizer, device=device, lr=args['lr'], 
+                                batch_size=args['batch_size'], splits=args['splits'], epochs=args['epochs'], 
+                                data_filename=args['data_file'], index=args['index'], weight_path=path, folder=folder)
+    train_losses, train_acc, valid_losses, valid_accs = spamDetector.run()
+    spamDetector.model.load_state_dict(torch.load(f'{folder}/{path}'))
+    
+    # plot curves and evaluate model on test set 
+    plot_loss_acc(train_losses, valid_losses, 'Loss', folder)
+    plot_loss_acc(train_acc, valid_accs, 'Acc', folder)
+    model_performance(spamDetector.model, spamDetector.test_data[0], spamDetector.test_data[1], spamDetector.test_data[2], device)
+
