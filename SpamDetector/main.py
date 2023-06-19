@@ -1,5 +1,5 @@
 from spam_detector import SpamDetector
-from model import BERT_Arch, GPT_Arch
+from model import PT_Arch
 from transformers import BertModel, OpenAIGPTModel, BertTokenizerFast, AutoTokenizer
 import torch
 import yaml
@@ -26,12 +26,11 @@ if __name__ == '__main__':
     if architecture == 'gpt':
         arch = OpenAIGPTModel.from_pretrained('openai-gpt')
         tokenizer = AutoTokenizer.from_pretrained('openai-gpt')
-        model = GPT_Arch(arch, args['dropout']).to(device)
     if architecture == 'bert':
         arch = BertModel.from_pretrained('bert-base-uncased')
         tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-        model = BERT_Arch(arch, args['dropout']).to(device)
     
+    model = PT_Arch(arch, args['dropout'], architecture).to(device)
     # freeze all the parameters
     for param in arch.parameters():
         param.requires_grad = False
