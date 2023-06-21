@@ -38,7 +38,8 @@ if __name__ == '__main__':
     # train model with training and validation datasets
     spamDetector = SpamDetector(model=model, tokenizer=tokenizer, device=device, lr=args['lr'], 
                                 batch_size=args['batch_size'], splits=args['splits'], epochs=args['epochs'], 
-                                data_filename=args['data_file'], index=args['index'], weight_path=path, folder=folder)
+                                data_filename=args['data_file'], index=args['index'], weight_path=path, folder=folder,
+                                sms=args['sms'], easy=args['easy'])
     train_losses, train_acc, valid_losses, valid_accs = spamDetector.run()
     spamDetector.model.load_state_dict(torch.load(f'{folder}/{path}'))
     

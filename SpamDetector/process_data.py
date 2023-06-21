@@ -1,3 +1,4 @@
+from process_email import get_body_dic, combine_data
 import numpy as np
 import pandas as pd
 import torch
@@ -11,17 +12,17 @@ def get_df(filename, index=None):
     
     lines = content.split('\n')
     lines = [i.split('\t') for i in lines][:index]
-    df = {'sms': [i[1] for i in lines], 'label': [0 if i[0] == 'ham' else 1 for i in lines]}
+    df = {'data': [i[1] for i in lines], 'label': [0 if i[0] == 'ham' else 1 for i in lines]}
     return df
 
 def split_data(df, valtest_size):
-    train_sms, temp_sms, train_labels, temp_labels = train_test_split(df['sms'], df['label'], 
+    train_data, temp_data, train_labels, temp_labels = train_test_split(df['data'], df['label'], 
                                                                       random_state=2018, test_size=valtest_size, 
                                                                       stratify=df['label'])
-    val_sms, test_sms, val_labels, test_labels = train_test_split(temp_sms, temp_labels, 
+    val_data, test_data, val_labels, test_labels = train_test_split(temp_data, temp_labels, 
                                                                   random_state=2018, test_size=0.5, 
                                                                   stratify=temp_labels)
-    return (train_sms, train_labels), (val_sms, val_labels), (test_sms, test_labels)
+    return (train_data, train_labels), (val_data, val_labels), (test_data, test_labels)
  
 def tokenize_data_and_get_weights(tokenizer, data, max_seq, batch_size, type='train'):
     tokenizer.pad_token = '[PAD]'
@@ -44,10 +45,15 @@ def get_weights(labels):
     weights= torch.tensor(class_wts,dtype=torch.float)
     return weights
 
-def process_data(tokenizer, splits, batch_size, file_name, index):
-    df = get_df(file_name, index)
-    train, valid, test = split_data(df, splits)
+def process_data(tokenizer, splits, batch_size, file_name, index, sms, easy):
+    if sms:
+        df = get_df(file_name, index)
+    else:
+        ham = get_body_dic("data/emailSpam/easy_ham/", 0) if easy else get_body_dic("data/emailSpam/hard_ham/", 0)
+        spam = get_body_dic("data/emailSpam/spam/", 1)
+        df = combine_data(ham, spam)
 
+    train, valid, test = split_data(df, splits)
     seq_len = [len(i.split()) for i in train[0]]
     max_seq_len = int(np.ceil((pd.Series(seq_len).describe()['75%']) / 5) * 5)
 

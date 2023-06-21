@@ -4,8 +4,10 @@ spamDetector:
     batch_size: 32
     splits: 0.4
     epochs: 20
-    data_file: 'SMSSpamCollection.txt'
+    data_file: 'data/smsSpam/SMSSpamCollection.txt'
     index: -2
     architecture: 'bert'
+    sms: False
+    easy: True
 prompting:
     k: 0
