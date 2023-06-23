@@ -3,6 +3,7 @@ from model import PT_Arch
 from transformers import BertModel, OpenAIGPTModel, BertTokenizerFast, AutoTokenizer
 import torch
 import yaml
+import os 
 from plotting_analytics import plot_loss_acc, model_performance
 
 import warnings
@@ -20,9 +21,11 @@ if __name__ == '__main__':
     args = config['spamDetector']
     architecture = args['architecture']
     path = f'{architecture}_saved_weights.pt'
-    folder = f'Trial_{architecture}'
+    folder = f'email_{architecture}_hard'
     device = torch.device("mps")
 
+    if not os.path.exists(folder):
+        os.makedirs(folder)
     if architecture == 'gpt':
         arch = OpenAIGPTModel.from_pretrained('openai-gpt')
         tokenizer = AutoTokenizer.from_pretrained('openai-gpt')
@@ -38,7 +41,8 @@ if __name__ == '__main__':
     # train model with training and validation datasets
     spamDetector = SpamDetector(model=model, tokenizer=tokenizer, device=device, lr=args['lr'], 
                                 batch_size=args['batch_size'], splits=args['splits'], epochs=args['epochs'], 
-                                data_filename=args['data_file'], index=args['index'], weight_path=path, folder=folder)
+                                data_filename=args['data_file'], index=args['index'], weight_path=path, folder=folder,
+                                sms=args['sms'], easy=args['easy'])
     train_losses, train_acc, valid_losses, valid_accs = spamDetector.run()
     spamDetector.model.load_state_dict(torch.load(f'{folder}/{path}'))
     
