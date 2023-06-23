@@ -55,7 +55,7 @@ def process_data(tokenizer, splits, batch_size, file_name, index, sms, easy):
 
     train, valid, test = split_data(df, splits)
     seq_len = [len(i.split()) for i in train[0]]
-    max_seq_len = int(np.ceil((pd.Series(seq_len).describe()['75%']) / 5) * 5)
+    max_seq_len = min(int(np.ceil((pd.Series(seq_len).describe()['75%']) / 5) * 5), 100)
 
     train_dataloader, train_weights = tokenize_data_and_get_weights(tokenizer, train, max_seq_len, batch_size, type='train')
     valid_dataloader= tokenize_data_and_get_weights(tokenizer, valid, max_seq_len, batch_size, type='valid')[0]
