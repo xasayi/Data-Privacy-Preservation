@@ -7,7 +7,7 @@ class PT_Arch(nn.Module):
         self.model = model 
         self.dropout = nn.Dropout(dropout)
         self.out = nn.Linear(self.model.config.hidden_size, 2)
-        self.softmax = nn.LogSoftmax(dim=1)
+        self.softmax = nn.Softmax(dim=1)
         self.type_ = type
 
     def forward(self, sent_id, mask):

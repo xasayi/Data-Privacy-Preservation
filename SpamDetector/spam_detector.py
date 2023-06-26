@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from transformers import AdamW
 from process_data import process_data
 
@@ -11,6 +12,7 @@ class SpamDetector(nn.Module):
         self.optimizer = self.optimizer = AdamW(self.model.parameters(), lr = lr)
         self.train_dataloader, self.valid_dataloader, self.test_data, weights = process_data(tokenizer, splits, batch_size, 
                                                                                              data_filename, index, sms, easy)
+        print(weights)
         self.cross_entropy  = nn.CrossEntropyLoss(weight=weights.to(device)) 
         self.epochs = epochs
         self.batch_size = batch_size
@@ -19,8 +21,11 @@ class SpamDetector(nn.Module):
         self.device = device
 
     def get_loss(self, sent_id, mask, labels, train=True):
-        preds = self.model(sent_id, mask)
-        loss = self.cross_entropy(preds,labels)
+        preds = self.model(sent_id, mask).squeeze()
+        #labels = F.one_hot(labels, num_classes=2).float()
+        #preds_y = np.amax(preds.detach().cpu().numpy(), axis=1)
+        #print([preds[i][pred_y[i]].detach().cpu().numpy() for i in range(len(preds))], labels)
+        loss = self.cross_entropy(preds, labels)
         total_loss = loss.item()
         if train:
             loss.backward()

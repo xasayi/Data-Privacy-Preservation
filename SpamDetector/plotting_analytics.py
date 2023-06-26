@@ -15,12 +15,18 @@ def plot_loss_acc(train, valid, type, folder):
     os.makedirs(folder, exist_ok=True)
     plt.savefig(f'{folder}/{type}.png')
 
-def model_performance(model, test_seq, test_mask, test_y, device):
+def model_performance(model, test_seq, test_mask, test_y, device, folder):
     with torch.no_grad():
         preds = model(test_seq.to(device), test_mask.to(device))
         preds = preds.detach().cpu().numpy()
     
     preds = np.argmax(preds, axis = 1)
-    print(classification_report(test_y, preds))
-    # confusion matrix
-    print(pd.crosstab(test_y, preds))
+    with open(f'{folder}/results.txt', 'w') as f:
+        report = classification_report(test_y, preds)
+        confusion_matrix = pd.crosstab(test_y, preds)
+        f.write(report)
+        f.write(str(confusion_matrix))
+        print(report)
+        print(str(confusion_matrix))
+
+    

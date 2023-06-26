@@ -1,12 +1,12 @@
 spamDetector:
-    dropout: 0.02
-    lr: 0.0008
+    dropout: 0.03
+    lr: 0.0005
     batch_size: 32
     splits: 0.4
-    epochs: 20
+    epochs: 10
     data_file: 'data/smsSpam/SMSSpamCollection.txt'
     index: -2
-    architecture: 'bert'
+    architecture: 'gpt'
     sms: False
     easy: True
 prompting:
