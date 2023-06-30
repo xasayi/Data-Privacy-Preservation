@@ -12,6 +12,7 @@ class SpamDetector(nn.Module):
         self.optimizer = self.optimizer = AdamW(self.model.parameters(), lr = lr)
         self.train_dataloader, self.valid_dataloader, self.test_data, weights = process_data(tokenizer, splits, batch_size, 
                                                                                              data_filename, index, sms, easy)
+        weights = torch.tensor([0.3, 1.5])
         print(weights)
         self.cross_entropy  = nn.CrossEntropyLoss(weight=weights.to(device)) 
         self.epochs = epochs
@@ -20,11 +21,16 @@ class SpamDetector(nn.Module):
         self.folder = folder
         self.device = device
 
+    def my_loss(self, output, target):
+        CE = [-target[i]*np.log(output[i][0]) - (1-target[i])*np.log((output[i][1])) for i in range(len(output))]
+        print(np.mean(CE))
+    
     def get_loss(self, sent_id, mask, labels, train=True):
         preds = self.model(sent_id, mask).squeeze()
         #labels = F.one_hot(labels, num_classes=2).float()
         #preds_y = np.amax(preds.detach().cpu().numpy(), axis=1)
         #print([preds[i][pred_y[i]].detach().cpu().numpy() for i in range(len(preds))], labels)
+        #self.my_loss(preds.detach().cpu().numpy(), labels.cpu().numpy())
         loss = self.cross_entropy(preds, labels)
         total_loss = loss.item()
         if train:
@@ -41,16 +47,21 @@ class SpamDetector(nn.Module):
     def train(self):
         self.model.train()
         total_loss, total_accuracy = 0, 0
-        for step,batch in enumerate(self.train_dataloader):
-            if step % 50 == 0 and not step == 0:
-                print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.train_dataloader)))
+        for step, batch in enumerate(self.train_dataloader):
+            
             batch = [r.to(self.device) for r in batch]
             sent_id, mask, labels = batch
             self.model.zero_grad()
             loss, preds = self.get_loss(sent_id, mask, labels)
+            if step % 50 == 0 and not step == 0:
+                print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.train_dataloader)))
+                output = np.argmax(preds.detach().cpu().numpy(), axis=1)
+                print(f'Pred: {output}')
+                print(f'Targ: {labels.detach().cpu().numpy()}')
+
             total_loss += loss
             total_accuracy += self.get_acc(preds, labels)
-        avg_loss = total_loss / len(self.train_dataloader) / self.batch_size
+        avg_loss = total_loss / len(self.train_dataloader)
         avg_acc = total_accuracy / len(self.train_dataloader) / self.batch_size
         return avg_loss, avg_acc
     
@@ -68,7 +79,7 @@ class SpamDetector(nn.Module):
                 loss, preds = self.get_loss(sent_id, mask, labels, train=False)
                 total_loss += loss
                 total_accuracy += self.get_acc(preds, labels)
-        avg_loss = total_loss / len(self.valid_dataloader) / self.batch_size
+        avg_loss = total_loss / len(self.valid_dataloader)
         avg_acc = total_accuracy / len(self.valid_dataloader) / self.batch_size
         return avg_loss, avg_acc
     

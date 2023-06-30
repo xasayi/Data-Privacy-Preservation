@@ -23,7 +23,7 @@ if __name__ == '__main__':
     path = f'{architecture}_saved_weights.pt'
     type_ = 'sms' if args['sms'] else 'email'
     diff = 'easy' if args['easy'] else 'hard'
-    folder = f'test_with_softmax_celoss_weight_{type_}_{architecture}_{diff}'
+    folder = f'test_custom_weight_with_softmax_celoss2_{type_}_{architecture}_{diff}'
     device = torch.device("mps")
 
     if not os.path.exists(folder):
@@ -51,5 +51,5 @@ if __name__ == '__main__':
     # plot curves and evaluate model on test set 
     plot_loss_acc(train_losses, valid_losses, 'Loss', folder)
     plot_loss_acc(train_acc, valid_accs, 'Acc', folder)
-    model_performance(spamDetector.model, spamDetector.test_data[0], spamDetector.test_data[1], spamDetector.test_data[2], device, folder)
+    model_performance(args, spamDetector.model, spamDetector.test_data[0], spamDetector.test_data[1], spamDetector.test_data[2], device, folder)
 
