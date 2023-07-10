@@ -21,16 +21,8 @@ class SpamDetector(nn.Module):
         self.folder = folder
         self.device = device
 
-    def my_loss(self, output, target):
-        CE = [-target[i]*np.log(output[i][0]) - (1-target[i])*np.log((output[i][1])) for i in range(len(output))]
-        print(np.mean(CE))
-    
     def get_loss(self, sent_id, mask, labels, train=True):
         preds = self.model(sent_id, mask).squeeze()
-        #labels = F.one_hot(labels, num_classes=2).float()
-        #preds_y = np.amax(preds.detach().cpu().numpy(), axis=1)
-        #print([preds[i][pred_y[i]].detach().cpu().numpy() for i in range(len(preds))], labels)
-        #self.my_loss(preds.detach().cpu().numpy(), labels.cpu().numpy())
         loss = self.cross_entropy(preds, labels)
         total_loss = loss.item()
         if train:
@@ -38,7 +30,7 @@ class SpamDetector(nn.Module):
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             self.optimizer.step()
         return total_loss, preds
-            
+ 
     def get_acc(self, preds, labels):
         pred_y = np.argmax(preds.detach().cpu().numpy(), axis=1)
         accuracy = np.sum([1 if pred_y[j] == labels[j] else 0 for j in range(len(labels))])
@@ -48,7 +40,7 @@ class SpamDetector(nn.Module):
         self.model.train()
         total_loss, total_accuracy = 0, 0
         for step, batch in enumerate(self.train_dataloader):
-            
+
             batch = [r.to(self.device) for r in batch]
             sent_id, mask, labels = batch
             self.model.zero_grad()
@@ -64,7 +56,7 @@ class SpamDetector(nn.Module):
         avg_loss = total_loss / len(self.train_dataloader)
         avg_acc = total_accuracy / len(self.train_dataloader) / self.batch_size
         return avg_loss, avg_acc
-    
+
     def eval(self):
         print("\nEvaluating...")
         self.model.eval()
@@ -82,7 +74,7 @@ class SpamDetector(nn.Module):
         avg_loss = total_loss / len(self.valid_dataloader)
         avg_acc = total_accuracy / len(self.valid_dataloader) / self.batch_size
         return avg_loss, avg_acc
-    
+
     def run(self):
         best_valid_loss = float('inf')
         train_losses, valid_losses = [], []
@@ -95,12 +87,12 @@ class SpamDetector(nn.Module):
             if valid_loss < best_valid_loss:
                 best_valid_loss = valid_loss
                 torch.save(self.model.state_dict(), f'{self.folder}/{self.weight_path}')
-            
+
             train_losses.append(train_loss)
             valid_losses.append(valid_loss)
             train_accs.append(train_acc)
             valid_accs.append(valid_acc)
-        
+
             print(f'\nTraining Loss: {train_loss:.3f}')
             print(f'Validation Loss: {valid_loss:.3f}')
             print(f'\nTraining Acc: {train_acc:.3f}')

@@ -9,7 +9,6 @@ from plotting_analytics import plot_loss_acc, model_performance
 import warnings
 warnings.filterwarnings('ignore')
 
-#spacy.load('en_core_web_sm')
 if __name__ == '__main__':
     # check using GPU
     print(torch.backends.mps.is_available())

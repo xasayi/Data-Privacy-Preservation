@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 import torch.nn as nn
 
 class PT_Arch(nn.Module):
@@ -18,7 +17,6 @@ class PT_Arch(nn.Module):
         if self.type_ == 'gpt':
              x = self.model(sent_id, attention_mask=mask)[0]
              x = self.gpt(torch.transpose(x, 1,2)).squeeze()
-             #x = torch.mean(x, axis=1)
         x = self.dropout(x)
         x = self.out(x)
         x = self.softmax(x)
