@@ -9,6 +9,7 @@ from plotting_analytics import plot_loss_acc, model_performance
 import warnings
 warnings.filterwarnings('ignore')
 
+#spacy.load('en_core_web_sm')
 if __name__ == '__main__':
     # check using GPU
     print(torch.backends.mps.is_available())
@@ -34,7 +35,6 @@ if __name__ == '__main__':
     if architecture == 'bert':
         arch = BertModel.from_pretrained('bert-base-uncased')
         tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-    
     model = PT_Arch(arch, args['dropout'], architecture).to(device)
     # freeze all the parameters
     for param in arch.parameters():

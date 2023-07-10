@@ -1,6 +1,8 @@
 import numpy as np
 import pickle
 import os
+import sys
+sys.path.append('.')
 
 def format_data(folder):
     files = os.listdir(folder)
