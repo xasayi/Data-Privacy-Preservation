@@ -7,7 +7,8 @@ class PT_Arch(nn.Module):
         self.model = model 
         self.dropout = nn.Dropout(dropout)
         self.out = nn.Linear(self.model.config.hidden_size, 2)
-        self.softmax = nn.LogSoftmax(dim=1)
+        self.softmax = nn.Softmax(dim=1)
+        self.gpt = nn.Linear(100, 1)
         self.type_ = type
 
     def forward(self, sent_id, mask):
@@ -15,7 +16,7 @@ class PT_Arch(nn.Module):
             x = self.model(sent_id, attention_mask=mask)[1]
         if self.type_ == 'gpt':
              x = self.model(sent_id, attention_mask=mask)[0]
-             x = torch.mean(x, axis=1)
+             x = self.gpt(torch.transpose(x, 1,2)).squeeze()
         x = self.dropout(x)
         x = self.out(x)
         x = self.softmax(x)
