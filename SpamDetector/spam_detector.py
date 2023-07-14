@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from transformers import AdamW
 from process_data import process_data
 
@@ -9,7 +8,7 @@ class SpamDetector(nn.Module):
     def __init__(self, model, tokenizer, device, lr, batch_size, splits, epochs, data_filename, index, folder, weight_path, sms, easy):
         super(SpamDetector, self).__init__()
         self.model = model
-        self.optimizer = self.optimizer = AdamW(self.model.parameters(), lr = lr)
+        self.optimizer = AdamW(self.model.parameters(), lr = lr)
         self.train_dataloader, self.valid_dataloader, self.test_data, weights = process_data(tokenizer, splits, batch_size, 
                                                                                              data_filename, index, sms, easy)
         weights = torch.tensor([0.3, 1.5])

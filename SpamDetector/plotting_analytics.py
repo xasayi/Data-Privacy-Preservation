@@ -19,11 +19,8 @@ def model_performance(args, model, test_seq, test_mask, test_y, device, folder):
     with torch.no_grad():
         preds = model(test_seq.to(device), test_mask.to(device))
         preds = preds.detach().cpu().numpy()
-    
-    
-    print(test_y)
+
     preds = np.argmax(preds, axis = 1)
-    print(preds)
     with open(f'{folder}/results.txt', 'w') as f:
         report = classification_report(test_y, preds)
         confusion_matrix = pd.crosstab(test_y, preds)
@@ -36,5 +33,3 @@ def model_performance(args, model, test_seq, test_mask, test_y, device, folder):
         f.write(f'epochs: {args["epochs"]}\n')
         print(report)
         print(str(confusion_matrix))
-
-    
