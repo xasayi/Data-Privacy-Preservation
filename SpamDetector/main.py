@@ -52,3 +52,4 @@ if __name__ == '__main__':
     plot_loss_acc(train_acc, valid_accs, 'Acc', folder)
     model_performance(args, spamDetector.model, spamDetector.test_data[0], spamDetector.test_data[1], spamDetector.test_data[2], device, folder)
 
+
