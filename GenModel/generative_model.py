@@ -75,6 +75,6 @@ class GenerativeModel(nn.Module):
             train_losses.append(train_loss)
             valid_losses.append(valid_loss)
 
-            print(f'\nTraining Loss: {train_loss[0]}')#:.3f}')
-            print(f'Validation Loss: {valid_loss}')#:.3f}')
+            print(f'\nTraining Loss: {train_loss[0]:.3f}')
+            print(f'Validation Loss: {valid_loss:.3f}')
         return train_losses, valid_losses

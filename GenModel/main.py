@@ -24,28 +24,27 @@ if __name__ == '__main__':
         os.makedirs(folder)
     model = GPT2LMHeadModel.from_pretrained("gpt2", pad_token_id=tokenizer.eos_token_id)
     model = model.to(device)
-    generativeModel = GenerativeModel(model=model, tokenizer=tokenizer, device=device, lr=0.005, 
-                                batch_size=32, splits=0.3, epochs=3, 
+    generativeModel = GenerativeModel(model=model, tokenizer=tokenizer, device=device, lr=0.0007, 
+                                batch_size=32, splits=0.3, epochs=20, 
                                 data_filename='SpamDetector/data/smsSpam/SMSSpamCollection.txt', 
                                 index=-2, weight_path=path, folder=folder)
     train_losses, valid_losses = generativeModel.run()
     generativeModel.model.load_state_dict(torch.load(f'{folder}/{path}'))
 
     # SAMPLING
-    # GREEDY
     spam = tokenizer.encode('spam ', return_tensors='pt')
     ham = tokenizer.encode('ham ', return_tensors='pt')
     np.random.seed(0)
-    # deactivate top_k sampling and sample only from 92% most likely words
+
     model.cpu()
     spam_outputs = model.generate(
-        spam,
+        ham,
         do_sample=True, 
         max_length=50, 
         top_k=50, 
         top_p=0.95, 
+        num_return_sequences=5, 
     )
-    print(spam_outputs)
 
     print("Output:\n" + 100 * '-')
     for i, sample_output in enumerate(spam_outputs):
