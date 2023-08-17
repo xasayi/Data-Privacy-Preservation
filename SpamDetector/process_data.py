@@ -5,11 +5,12 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from sklearn.utils.class_weight import compute_class_weight
+import os
+import sys
 
 def get_df(filename, index=None):
     with open(filename) as f:
         content = f.read()
-    
     lines = content.split('\n')
     lines = [i.split('\t') for i in lines][:index]
     df = {'data': [i[1] for i in lines], 'label': [0 if i[0] == 'ham' else 1 for i in lines]}
