@@ -2,11 +2,16 @@ from evaluate import load
 import random
 import numpy as np
 import pickle
+from numpy.linalg import norm
 import time
 import sys
+import torch
 sys.path.insert(0, '/Users/sarinaxi/Desktop/Thesis')
 
 from SpamDetector.process_data import get_df
+from transformers import BertTokenizerFast
+
+device = torch.device("mps")
 
 def create_private_public(filename, index):
     df = get_df(filename, index)
@@ -24,21 +29,21 @@ def create_private_public(filename, index):
     np.random.shuffle(private)
     np.random.shuffle(public)
     print(len(private), len(public))
-    return private[:10], public
+    return private[2000:], public
 
 def similarity(reference, prediction):
     bertscore = load("bertscore")
     references = reference*len(prediction)
-    results = bertscore.compute(predictions=prediction, references=references, lang="en", model_type="distilbert-base-uncased")
+    results = bertscore.compute(predictions=prediction, references=references, lang="en", model_type="distilbert-base-uncased", device=device, use_fast_tokenizer=True)
     return results
 
 if __name__ == '__main__':
     filename = '/Users/sarinaxi/Desktop/Thesis/SpamDetector/data/smsSpam/SMSSpamCollection.txt'
     private, public = create_private_public(filename, -1)
-
+    
     public_data = public[:, 0]
     public_label = public[:, 1]
-    
+
     sim = []
     for ind, i in enumerate(private):
         start = time.time()
@@ -46,11 +51,13 @@ if __name__ == '__main__':
         index = np.argsort(f1)[::-1][:5]
         sim.append([list(index), list(f1[index])])
         end = time.time()
-        print(f'{ind} took {round(end-start, 2)} seconds.\n')
+        if ind % 10 == 0:
+            print(f'{ind} took {round(end-start, 2)} seconds.\n')
 
     dic = {'private': private, 'public': public, 'similar': sim}
-    file_name = "/Users/sarinaxi/Desktop/Thesis/StudentTeacher/sim_10.pkl"
+    file_name = "/Users/sarinaxi/Desktop/Thesis/StudentTeacher/sim_new.pkl"
 
     open_file = open(file_name, "wb")
     pickle.dump(dic, open_file)
     open_file.close()
+    

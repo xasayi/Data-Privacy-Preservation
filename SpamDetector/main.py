@@ -1,10 +1,12 @@
-from spam_detector import SpamDetector
-from model import PT_Arch
+import sys
+sys.path.insert(0, '/Users/sarinaxi/Desktop/Thesis')
+from SpamDetector.spam_detector import SpamDetector
+from SpamDetector.model import PT_Arch
 from transformers import BertModel, OpenAIGPTModel, BertTokenizerFast, AutoTokenizer
 import torch
 import yaml
 import os 
-from plotting_analytics import plot_loss_acc, model_performance
+from SpamDetector.plotting_analytics import plot_loss_acc, model_performance
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -15,7 +17,7 @@ if __name__ == '__main__':
     print(torch.backends.mps.is_built())
 
     # define variables 
-    with open("config.yaml", 'r') as f:
+    with open("SpamDetector/config.yaml", 'r') as f:
         config = yaml.safe_load(f)
     
     args = config['spamDetector']
@@ -23,7 +25,7 @@ if __name__ == '__main__':
     path = f'{architecture}_saved_weights.pt'
     type_ = 'sms' if args['sms'] else 'email'
     diff = 'easy' if args['easy'] else 'hard'
-    folder = f'test_custom_weight_with_softmax_celoss2_{type_}_{architecture}_{diff}'
+    folder = f'SpamDetector/results/ST_bert-large-cased-whole-word-masking_{diff}_{type_}'
     device = torch.device("mps")
 
     if not os.path.exists(folder):
@@ -32,8 +34,8 @@ if __name__ == '__main__':
         arch = OpenAIGPTModel.from_pretrained('openai-gpt')
         tokenizer = AutoTokenizer.from_pretrained('openai-gpt')
     if architecture == 'bert':
-        arch = BertModel.from_pretrained('bert-base-uncased')
-        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+        arch = BertModel.from_pretrained('bert-large-cased-whole-word-masking')
+        tokenizer = BertTokenizerFast.from_pretrained('bert-large-cased-whole-word-masking')
     model = PT_Arch(arch, args['dropout'], architecture).to(device)
     # freeze all the parameters
     for param in arch.parameters():
@@ -51,5 +53,3 @@ if __name__ == '__main__':
     plot_loss_acc(train_losses, valid_losses, 'Loss', folder)
     plot_loss_acc(train_acc, valid_accs, 'Acc', folder)
     model_performance(args, spamDetector.model, spamDetector.test_data[0], spamDetector.test_data[1], spamDetector.test_data[2], device, folder)
-
-
