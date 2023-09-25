@@ -9,18 +9,20 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import tensorflow as tf
 
-def get_data(filename, downsample):
+def read_data(filename):
     with open(filename) as f:
         content = f.read()
     lines = content.split('\n')
     lines = np.array([i.split('\t') for i in lines][:-2])
-    
     df = pd.DataFrame(lines, columns=['type', 'data']).drop_duplicates()
-    ham = df[df['type']=='ham']
-    spam = df[df['type']=='spam']
+    return df
+
+def get_data(df, downsample):
     if downsample:
+        ham = df[df['type']=='ham']
+        spam = df[df['type']=='spam']
         ham = ham.sample(n = len(spam), random_state = 44)
-    df = pd.concat([ham, spam]).reset_index(drop=True)
+        df = pd.concat([ham, spam]).reset_index(drop=True)
     ret = df.reindex(np.random.permutation(df.index))
     ret['label']= ret['type'].map({'ham': 0, 'spam': 1})
     return ret
@@ -36,8 +38,8 @@ def tokenize(tokenizer, data, max_len, padding_type, trunc_type, bs, type):
         return dataloader, weight
     return (training_padded, data[1])
 
-def process_data(filename, vocab_size, splits, bs, max_seq, padding_type, trunc_type):
-    dic1 = get_data(filename, True)
+def process_data(df, vocab_size, splits, bs, max_seq, padding_type, trunc_type, downsample):
+    dic1 = get_data(df, downsample)
     tokenizer = Tokenizer(num_words = vocab_size, char_level=False, oov_token = "<OOV>")
     tokenizer.fit_on_texts(dic1['data'])
     
@@ -47,3 +49,15 @@ def process_data(filename, vocab_size, splits, bs, max_seq, padding_type, trunc_
     test_data = tokenize(tokenizer, test, max_seq, padding_type, trunc_type, bs, 'test')
 
     return train_dataloader, train_weight, valid_dataloader, test_data
+
+if __name__ == '__main__':
+    filename = '/Users/sarinaxi/Desktop/Thesis/SpamDetector/data/smsSpam/SMSSpamCollection.txt'
+    df = read_data(filename)
+    mask = df['type'] == 'ham'
+    ham, spam = df[mask], df[~mask]
+    ham_len, spam_len = len(ham), len(spam)
+    private = pd.concat([ham[:int(ham_len//2)] , spam[:int(spam_len//2)]]).reset_index(drop=True)
+    public = pd.concat([ham[int(ham_len//2):] , spam[int(spam_len//2):]]).reset_index(drop=True)
+
+
+    print(df[df['type'] == ham])

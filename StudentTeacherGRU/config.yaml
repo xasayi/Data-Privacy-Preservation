@@ -1,27 +1,31 @@
-file_name: '/Users/sarinaxi/Desktop/Thesis/StudentTeacherGRU/data/all_data.pkl'
+file_name: '/Users/sarinaxi/Desktop/Thesis/SpamDetector/data/smsSpam/SMSSpamCollection.txt'
 Student:
-    folder: 'StudentTeacherGRU/results/test_student_gru'
-    name: 'test_student_gru.pt'
+    folder: 'StudentTeacherGRU/results/StudentPT70%EarlyStop'
+    name: 'student.pt'
+    dropout: 0.1
+    input_size: 40
+    lr: 0.0009
+    vocab_size: 1000
+    batch_size: 16
+    splits: 0.2
+    epochs: 60
+    hidden_size: 10
+    embed_size: 20
+    downsample: True
+  
+Teacher:
+    folder: 'StudentTeacherGRU/results/TeacherPT'
+    name: 'teacher.pt'
     dropout: 0.2
     input_size: 40
-    lr: 0.0002
+    lr: 0.0005
+    vocab_size: 1000
     batch_size: 16
     splits: 0.3
     epochs: 30
     hidden_size: 10
     embed_size: 20
-  
-Teacher:
-    architecture: 'bert-base-uncased'
-    folder: 'StudentTeacherGRU/results/test_student'
-    name: 'test_student.pt'
-    dropout: 0.05
-    input_size: 50
-    lr: 0.0001
-    batch_size: 16
-    splits: 0.4
-    epochs: 10
-    hidden_size: 15
+    downsample: False
     
 StudentTeacher:
     folder: 'StudentTeacherGRU/results/test_student_teacher'
