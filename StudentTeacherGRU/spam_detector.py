@@ -19,7 +19,7 @@ class SpamDetector(nn.Module):
         self.device = device
     
     def get_loss(self, sent_id, labels, train=True):
-        preds = self.model(sent_id)
+        preds = self.model(sent_id)[-1]
         labels = torch.unsqueeze(labels, dim=1).float()
         loss = self.loss(preds, labels)
         total_loss = loss.item()
@@ -99,7 +99,7 @@ class SpamDetector(nn.Module):
 
 def model_performance(args, model, test_seq, test_y, device, folder):
     with torch.no_grad():
-        preds = model(torch.tensor(test_seq).to(device))
+        preds = model(torch.tensor(test_seq).to(device))[-1]
         preds = preds.detach().cpu().numpy()
     preds = [1 if preds[i] > 0.5 else 0 for i in range(len(preds))]
     with open(f'{folder}/results.txt', 'w') as f:

@@ -12,14 +12,14 @@ class EmbedModel(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        x = self.embed(x)
-        x = torch.mean(x, dim=1)
-        x = self.linear1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.linear2(x)
-        x = self.sigmoid(x)
-        return x
+        x_embed = self.embed(x)
+        x_embed = torch.mean(x_embed, dim=1)
+        fc1 = self.linear1(x_embed)
+        fc1 = self.relu(fc1)
+        fc1 = self.dropout(fc1)
+        fc2 = self.linear2(fc1)
+        pred = self.sigmoid(fc2)
+        return fc1, fc2, pred
     
 class LSTMModel(nn.Module):
     def __init__(self, vocab_size, embedding_size, linear_size, dropout):
@@ -33,12 +33,12 @@ class LSTMModel(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        x = self.embed(x)
-        x = torch.mean(x, dim=1)
-        x, _ = self.lstm1(x.view(len(x), -1))
-        x = self.dropout1(x)
-        x, _ = self.lstm2(x.view(len(x), -1))
-        x = self.dropout2(x)
-        x = self.linear1(x)
-        x = self.sigmoid(x)
-        return x
+        x_embed = self.embed(x)
+        x_embed = torch.mean(x_embed, dim=1)
+        lstm1, _ = self.lstm1(x_embed.view(len(x_embed), -1))
+        lstm1 = self.dropout1(lstm1)
+        lstm2, _ = self.lstm2(lstm1.view(len(lstm1), -1))
+        lstm2 = self.dropout2(lstm2)
+        fc1 = self.linear1(lstm2)
+        pred = self.sigmoid(fc1)
+        return lstm2, fc1, pred
