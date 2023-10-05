@@ -2,92 +2,140 @@ import os
 import sys
 import yaml
 import torch
+import pandas as pd
+import numpy as np
 sys.path.insert(0, '/Users/sarinaxi/Desktop/Thesis')
 
-from transformers import BertModel, BertTokenizerFast
 from SpamDetector.plotting_analytics import plot_loss_acc
-from StudentTeacher.base_model import PTModel, Model
-from StudentTeacher.process_data import load_data, process_data
-from StudentTeacher.spam_detector import SpamDetector, model_performance
+from StudentTeacher.model import EmbedModel, LSTMModel
 from StudentTeacher.student_teacher import StudentTeacher
+from StudentTeacher.process_data import process_data, read_data
+from StudentTeacher.spam_detector import SpamDetector, model_performance
 
-def test(args, spamDetector, folder, name, student_bool):
-    train_losses, train_acc, valid_losses, valid_accs = spamDetector.run(student_bool)
-    spamDetector.model.load_state_dict(torch.load(f'{folder}/{name}'))
-    
-    # plot curves and evaluate model on test set 
-    plot_loss_acc(train_losses, valid_losses, 'Loss', folder)
-    plot_loss_acc(train_acc, valid_accs, 'Acc', folder)
-    model_performance(args, spamDetector.model, spamDetector.test_data[0], spamDetector.test_data[1], spamDetector.test_data[2], device, folder, student_bool)
-
-def run_teacher(args, teacher, pub_train_loader, device, pub_val_loader, pub_test, weights, folder, name):
-    teacher_spamDetector = SpamDetector(model=teacher, train_dataloader=pub_train_loader, device=device, lr=args['lr'], 
-                                        batch_size=args['batch_size'], valid_dataloader=pub_val_loader, epochs=args['epochs'], 
-                                        test_data=pub_test, weights=weights, folder=folder, weight_path=name)
-    test(args, teacher_spamDetector, folder, name, False)
-
-def run_student(args, student, pri_train_loader, device, pri_val_loader, pri_test, weights, folder, name):
-    student_spamDetector = SpamDetector(model=student, train_dataloader=pri_train_loader, device=device, lr=args['lr'], 
-                                        batch_size=args['batch_size'], valid_dataloader=pri_val_loader, epochs=args['epochs'], 
-                                        test_data=pri_test, weights=weights, folder=folder, weight_path=name)
-    test(args, student_spamDetector, folder, name, True)
-
-def run_student_teacher(teacher, student, device, lr, bs, split, epoch, private, public, folder, name, te_folder, te_name):
-    student_teacher = StudentTeacher(teacher=teacher, student=student, device=device, lr=lr, batch_size=bs, splits=split, 
-                                    epochs=epoch, private=private, public=public, folder=folder, weight_path=name)
-    student_teacher.teacher.load_state_dict(torch.load(f'{te_folder}/{te_name}'))
-    train_losses, student_train_accs, valid_losses, student_valid_accs, teacher_train_accs, teacher_valid_accs = student_teacher.run()
-    student_teacher.student.load_state_dict(torch.load(f'{folder}/{name}'))
-    
-    # plot curves and evaluate model on test set 
-    plot_loss_acc(train_losses, valid_losses, 'Loss', folder)
-    plot_loss_acc(student_train_accs, student_valid_accs, 'Student_Acc', folder)
-    plot_loss_acc(teacher_train_accs, teacher_valid_accs, 'Teacher_Acc', folder)
-
-if __name__ == '__main__':
+def args_and_init(student, teacher):
     # check GPU, don't use it since there's a bug with GRU
     print(torch.backends.mps.is_available())
     print(torch.backends.mps.is_built())
-    device = torch.device("cpu")
-
-    # define variables 
-    with open("StudentTeacher/config.yaml", 'r') as f:
+    with open("StudentTeacherGRU/config.yaml", 'r') as f:
         config = yaml.safe_load(f)
-    
-    # Teacher Config
-    te_args = config['Teacher']
-    te_arch = te_args['architecture']
-    te_folder = te_args['folder']
-    te_name = te_args['name']
-    pt_te_model = BertModel.from_pretrained(te_arch)
-    tokenizer = BertTokenizerFast.from_pretrained(te_arch)
-    teacher = PTModel(pt_te_model, te_args['dropout']).to(device)
-    if not os.path.exists(te_folder):
-        os.makedirs(te_folder)
-    
-    # Student Config
-    st_args = config['Student']
-    st_folder = st_args['folder']
-    st_name = st_args['name']
-    student = Model(st_args['input_size'], st_args['hidden_size'], st_args['dropout']).to(device)
-    if not os.path.exists(st_folder):
-        os.makedirs(st_folder)
+    st_args, te_args = None, None
+    if student:
+        st_args = config['StudentPT']
+        st_folder = st_args['folder']
+        if not os.path.exists(st_folder):
+            os.makedirs(st_folder)
+    if teacher:
+        te_args = config['TeacherPT']
+        te_folder = te_args['folder']
+        if not os.path.exists(te_folder):
+            os.makedirs(te_folder)
+    if not os.path.exists(config['StudentTeacher']['folder']):
+        os.makedirs(config['StudentTeacher']['folder'])
+    return config['file_name'], st_args, te_args, config['StudentTeacher']
 
-    # Student Teacher Config
-    st_te_args = config['StudentTeacher']
-    st_te_folder = st_te_args['folder']
-    st_te_name = st_te_args['name']
-    if not os.path.exists(st_te_folder):
-        os.makedirs(st_te_folder)
+def split_df(df, ratio):
+    spam = df[df['type']=='spam']
+    ham = df[df['type']=='ham']
+    ham_ratio = ham.sample(n = int(len(ham)*ratio), random_state = 67)
+    spam_ratio = spam.sample(n = int(len(spam)*ratio), random_state = 67)
+    ham_other = ham[~ham.index.isin(ham_ratio.index)]
+    spam_other = spam[~spam.index.isin(spam_ratio.index)]
+    ret_ratio = pd.concat([ham_ratio, spam_ratio])
+    ret_ratio = ret_ratio.reindex(np.random.permutation(ret_ratio.index)).reset_index(drop=True)
+    ret_other = pd.concat([ham_other, spam_other])
+    ret_other = ret_other.reindex(np.random.permutation(ret_other.index)).reset_index(drop=True)
+    return ret_ratio, ret_other
+
+def pre_train(model, args, df):
+    train_loader, valid_loader, test_data, weight = process_data(df, args['vocab_size'], args['splits'], args['batch_size'], 
+                                                                 args['input_size'], 'post', 'post', args['downsample'])
+    agent = SpamDetector(model=model, train_dataloader=train_loader, device=device, lr=args['lr'], 
+                                        batch_size=args['batch_size'], valid_dataloader=valid_loader, epochs=args['epochs'], 
+                                        test_data=test_data, weights=weight, folder=args['folder'], weight_path=args['name'])
+    train_losses, train_acc, valid_losses, valid_accs = agent.run()
+    plot_loss_acc(train_losses, valid_losses, 'Loss', args['folder'])
+    plot_loss_acc(train_acc, valid_accs, 'Acc', args['folder'])
+
+def check_ptmodel(model, args, df):
+    train_loader, valid_loader, test_data, weight = process_data(df, args['vocab_size'], args['splits'], args['batch_size'], 
+                                                                 args['input_size'], 'post', 'post', args['downsample'])
+    agent = SpamDetector(model=model, train_dataloader=train_loader, device=device, lr=args['lr'], 
+                                        batch_size=args['batch_size'], valid_dataloader=valid_loader, epochs=args['epochs'], 
+                                        test_data=test_data, weights=weight, folder=args['folder'], weight_path=args['name'])
+    agent.model.load_state_dict(torch.load(f"{args['folder']}/{args['name']}"))
+    model_performance(args, agent.model, agent.test_data[0], agent.test_data[1], device, args['folder'])
+
+if __name__ == '__main__':
+    device = torch.device("cpu")
+    # define variables 
+    filename, st_args, te_args, args = args_and_init(True, True)
+    other_df = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/StudentTeacherGRU/data/df8.csv')
+    df = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/StudentTeacherGRU/data/df_full.csv')
+    train_loader, valid_loader, test_data, weight = process_data(df, args['vocab_size'], args['splits'], args['batch_size'], 
+                                                                 args['input_size'], 'post', 'post', args['downsample'])
     
-    # load data
-    private, public = load_data(config['file_name'])
-    pri_train_loader, pri_val_loader, pri_test, pri_weight = process_data(tokenizer, st_args['splits'], 
-                                                                          st_args['batch_size'], private, st_args['input_size'])
-    pub_train_loader, pub_val_loader, pub_test, pub_weight = process_data(tokenizer, te_args['splits'], 
-                                                                          te_args['batch_size'], public, te_args['input_size'])
+    student = LSTMModel(st_args['vocab_size'], st_args['embed_size'], st_args['hidden_size'], st_args['dropout']).to(device)
+    teacher = LSTMModel(te_args['vocab_size'], te_args['embed_size'], te_args['hidden_size'], te_args['dropout']).to(device)
+
+    #check_ptmodel(teacher, te_args, df)
+    #check_ptmodel(student, st_args, df)
+    #agent = StudentTeacher(df, teacher, student, device, args)
+    #train_losses, student_train_accs, valid_losses, student_valid_accs, teacher_train_accs, teacher_valid_accs = agent.run('cosine')
+    '''for i in train_loader:
+        pred_s = student(i[0])
+        pred_t = teacher(i[0])
+        print(i[1].flatten().tolist())
+        print([1 if i > 0.5 else 0 for i in pred_s[-1].flatten()])
+        print([1 if i > 0.5 else 0 for i in pred_t[-1].flatten()])
+        break
+
     
-    #run_teacher(te_args, teacher, pub_train_loader, device, pub_val_loader, pub_test, pub_weight, te_folder, te_name)
-    #run_student(st_args, student, pri_train_loader, device, pri_val_loader, pri_test, pri_weight, st_folder, st_name)
-    run_student_teacher(teacher, student, device, st_te_args['lr'], st_te_args['batch_size'], st_te_args['splits'], 
-                        st_te_args['epochs'], private, public, st_te_folder, st_te_name, te_folder, te_name)
+    for i in train_loader:
+        pred_s = student(i[0])
+        pred_t = teacher(i[0])
+        print(i[1].flatten().tolist())
+        print([1 if i > 0.5 else 0 for i in pred_s[-1].flatten()])
+        print([1 if i > 0.5 else 0 for i in pred_t[-1].flatten()])
+        break
+    for i in train_loader:
+        pred_s = agent.student(i[0])
+        pred_t = agent.teacher(i[0])
+        print(i[1].flatten().tolist())
+        print([1 if i > 0.5 else 0 for i in pred_s[-1].flatten()])
+        print([1 if i > 0.5 else 0 for i in pred_t[-1].flatten()])
+        break
+    '''
+    
+    #plot_loss_acc(train_losses, valid_losses, 'Loss', args['folder'])
+    #plot_loss_acc(student_train_accs, student_valid_accs, 'Student Acc', args['folder'])
+    #plot_loss_acc(teacher_train_accs, teacher_valid_accs, 'Teacher Acc', args['folder'])
+    #pre_train(teacher, te_args, df)
+    #student_agent = pre_train(student, st_args, student_df)
+    #student_agent.model.load_state_dict(torch.load(f"{st_args['folder']}/{st_args['name']}"))
+    #model_performance(st_args, student_agent.model, student_agent.test_data[0], student_agent.test_data[1], device, st_args['folder'])
+    #check_ptmodel(teacher, te_args, df)
+    #check_ptmodel(student, st_args, df)
+    #'''
+    args = te_args
+    train_loss, valid_loss, train_acc, valid_acc = [], [], [], []
+    for i in range(3):
+
+        train_loader, valid_loader, test_data, weight = process_data(df, args['vocab_size'], args['splits'], args['batch_size'], 
+                                                                 args['input_size'], 'post', 'post', True)
+        agent = SpamDetector(model=teacher, train_dataloader=train_loader, device=device, lr=args['lr'], 
+                                        batch_size=args['batch_size'], valid_dataloader=valid_loader, epochs=8, 
+                                        test_data=test_data, weights=weight, folder=args['folder'], weight_path=args['name'])
+        train_losses1, train_acc1, valid_losses1, valid_accs1 = agent.run()
+        
+        agent.train_dataloader, agent.valid_dataloader, agent.test_data, weight = process_data(df, args['vocab_size'], args['splits'], args['batch_size'], 
+                                                                                               args['input_size'], 'post', 'post', False)
+        train_losses2, train_acc2, valid_losses2, valid_accs2 = agent.run()
+    
+        train_loss += train_losses1 + train_losses2
+        valid_loss += valid_losses1 + valid_losses2
+        train_acc += train_acc1 + train_acc2
+        valid_acc += valid_accs1 + valid_accs2
+    plot_loss_acc(train_loss, valid_loss, 'Loss', args['folder'])
+    plot_loss_acc(train_acc, valid_acc, 'Acc', args['folder'])
+    
+    #'''

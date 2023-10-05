@@ -1,110 +1,163 @@
-from transformers import BertModel, BertTokenizerFast, AutoTokenizer
-
 import torch
 import torch.nn as nn
 import numpy as np
 from transformers import AdamW
-from StudentTeacher.process_data import process_data
-
-teacher = BertModel.from_pretrained('bert-large-cased-whole-word-masking')
-tokenizer = BertTokenizerFast.from_pretrained('bert-large-cased-whole-word-masking')
+from StudentTeacher.process_data import tokenize, get_data, split_data
+from StudentTeacher.similarity import find_similar
+from tensorflow.keras.preprocessing.text import Tokenizer
+from torch.utils.data import RandomSampler
 
 class StudentTeacher(nn.Module):
-    def __init__(self, teacher, student, device, lr, batch_size, splits, epochs, private, public, folder, weight_path):
+    def __init__(self, df, teacher, student, device, args):
         super(StudentTeacher, self).__init__()
-        self.student = student
         self.teacher = teacher
-        self.optimizer = AdamW(self.student.parameters(), lr = lr)
-        self.pri_train_loader, self.pri_val_loader, self.pri_test, pri_weight = process_data(tokenizer, splits, 32, private, 25)  
-        self.pub_train_loader, self.pub_val_loader, self.pub_test, pub_weight = process_data(tokenizer, splits, 32, public, 25)  
-        weights = (pri_weight + pub_weight)/2
-        self.cross_entropy  = nn.CrossEntropyLoss(weight=weights.to(device)) 
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.weight_path = weight_path
-        self.folder = folder
+        self.student = student
+        self.args = args
+        self.df = df
+        self.epochs = args['epochs']
+        self.batch_size = args['batch_size']
+        self.lr = args['lr']
+        self.weight_path = args['name']
+        self.folder = args['folder']
+        self.optimizer = AdamW(self.student.parameters(), lr = self.lr)
+        self.get_dataloaders(args, RandomSampler)
+        self.loss  = nn.BCELoss() 
         self.device = device
+    
+    def get_dataloaders(self, args, sampler):
+        dic1 = get_data(self.df, args['downsample'])
+        tokenizer = Tokenizer(num_words = args['vocab_size'], char_level=False, oov_token = "<OOV>")
+        tokenizer.fit_on_texts(dic1['data'])
+    
+        train, valid, test = split_data(dic1, args['splits'])
+        self.trainloader = tokenize(tokenizer, train, args['input_size'], 'post', 'post', args['batch_size']*args['factor'], 'train', sampler)[0]
+        self.validloader = tokenize(tokenizer, valid, args['input_size'], 'post', 'post', args['batch_size']*args['factor'], 'train', sampler)[0]
+        self.testloader = tokenize(tokenizer, test, args['input_size'], 'post', 'post', args['batch_size'], 'train', sampler)[0]
 
-    def get_loss(self, pub_sent_id, pub_mask, pri_sent_id, train=True):
-        teacher_preds = self.teacher(pub_sent_id, pub_mask)
-        student_preds = self.student(pri_sent_id)
-        loss = self.cross_entropy(student_preds, teacher_preds)
-        total_loss = loss.item()
-        if train:
+    def get_acc(self, preds, labels):
+        preds = [1 if preds[j] >= 0.5 else 0 for j in range(len(preds))]
+        accuracy = np.sum([1 if preds[i] == labels[i] else 0 for i in range(len(labels))]) / len(labels)
+        return accuracy
+
+    def train(self, sim):
+        self.student.train()
+        total_loss, teacher_total_accuracy, student_total_accuracy = 0, 0, 0
+        for step, (test_batch, train_pool) in enumerate(zip(self.testloader, self.trainloader)):
+
+            pri_batch = [r.to(self.device) for r in test_batch]
+            pub_pool = [r.to(self.device) for r in train_pool]
+            pri_tok, pri_labels = pri_batch
+            pub_tok, pub_labels = pub_pool
+            
+            self.student.zero_grad()
+            print(f'Pri Labels{pri_labels.tolist()}')
+            # get the data representation and predictions from the student model
+            student_pri_lstm2, student_pri_fc1, student_pri_pred = self.student(pri_tok)
+            teacher_pri_lstm2, teacher_pri_fc1, teacher_pri_pred = self.teacher(pri_tok)
+            print(f'Tea Predic{[1 if i > 0.5 else 0 for i in teacher_pri_pred]}')
+            print(f'Stu Predic{[1 if i > 0.5 else 0 for i in student_pri_pred]}')
+            #student_pub_lstm2, student_pub_fc1, student_pub_pred = self.student(pub_tok)
+
+            # find index of public data that is similar 
+            #lstm = True
+            #if lstm:
+            #    sim_pub_index = find_similar(student_pri_lstm2, student_pub_lstm2, sim)
+            #else:
+            #    sim_pub_index = find_similar(student_pri_fc1, student_pub_fc1, sim)
+            
+            # get the similar public inputs and labels
+            #sim_pub_tok, sim_pub_labels = pub_tok[sim_pub_index], pub_labels[sim_pub_index]
+            #print(f'Pub_sim Labels{sim_pub_labels.tolist()}')
+            # get teacher prediction on similar data
+            #teacher_pub_lstm2, teacher_pub_fc1, teacher_pub_pred = self.teacher(sim_pub_tok)
+            # sanity check 
+            #teacher_pub_lstm2, teacher_pub_fc1, teacher_pub_pred = self.teacher(pri_tok)
+            #print(f'Tea_pub Predic{[1 if i > 0.5 else 0 for i in teacher_pub_pred]}')
+            #print(f'Stu_pri Predic{[1 if i > 0.5 else 0 for i in student_pri_pred]}')
+            # get loss between student private prediction and teacher public prediction
+            #loss = self.loss(student_pri_pred, teacher_pub_pred)
+            loss = self.loss(student_pri_pred, teacher_pri_pred)
+            incre_loss = loss.item()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.student.parameters(), 1.0)
             self.optimizer.step()
-        return total_loss, student_preds, teacher_preds
-        
- 
-    def get_acc(self, preds, labels):
-        pred_y = np.argmax(preds.detach().cpu().numpy(), axis=1)
-        accuracy = np.sum([1 if pred_y[j] == labels[j] else 0 for j in range(len(labels))]) / len(labels)
-        return accuracy
 
-    # change so it's compatible with rnns output, within only sent_id and no mask
-    def train(self):
-        self.student.train()
-        total_loss, teacher_total_accuracy, student_total_accuracy = 0, 0, 0
-        for step, (pri_batch, pub_batch) in enumerate(zip(self.pri_train_loader, self.pub_train_loader)):
-
-            pri_batch = [r.to(self.device) for r in pri_batch]
-            pub_batch = [r.to(self.device) for r in pub_batch]
-            pri_sent_id, pri_mask, pri_labels = pri_batch
-            pub_sent_id, pub_mask, pub_labels = pub_batch
-            self.student.zero_grad()
-            
-            loss, student_preds, teacher_preds = self.get_loss(pub_sent_id, pub_mask, pri_sent_id)
-            
-            if step % 50 == 0 and not step == 0:
-                print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.pri_train_loader)))
-                output = np.argmax(student_preds.detach().cpu().numpy(), axis=1)
+            # print outputs
+            if step % 10 == 0 and not step == 0:
+                print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.testloader)))
+                output = np.argmax(student_pri_pred.detach().cpu().numpy(), axis=1)
                 print(f'Student Pred: {output}')
                 print(f'Student Targ: {pri_labels.detach().cpu().numpy()}')
 
-                output = np.argmax(teacher_preds.detach().cpu().numpy(), axis=1)
+                output = np.argmax(teacher_pri_pred.detach().cpu().numpy(), axis=1)
+                #output = np.argmax(teacher_pub_pred.detach().cpu().numpy(), axis=1)
                 print(f'Teacher Pred: {output}')
-                print(f'Teacher Targ: {pub_labels.detach().cpu().numpy()}')
+                #print(f'Teacher Targ: {sim_pub_labels.detach().cpu().numpy()}')
+                print(f'Teacher Targ: {pri_labels.detach().cpu().numpy()}')
 
-            total_loss += loss
-            teacher_total_accuracy += self.get_acc(teacher_preds, pub_labels)
-            student_total_accuracy += self.get_acc(student_preds, pri_labels)
-        avg_loss = total_loss / len(self.pri_train_loader)
-        student_avg_acc = student_total_accuracy / len(self.pri_train_loader) 
-        teacher_avg_acc = teacher_total_accuracy / len(self.pub_train_loader)
+            total_loss += incre_loss
+            #teacher_total_accuracy += self.get_acc(teacher_pub_pred, sim_pub_labels)
+            # sanity check
+            teacher_total_accuracy += self.get_acc(teacher_pri_pred, pri_labels)
+            student_total_accuracy += self.get_acc(student_pri_pred, pri_labels)
+        step += 1
+        avg_loss = total_loss / step
+        student_avg_acc = student_total_accuracy / step
+        teacher_avg_acc = teacher_total_accuracy / step
         return avg_loss, student_avg_acc, teacher_avg_acc
 
-    def eval(self):
+    def eval(self, sim):
         print("\nEvaluating...")
         self.student.eval()
         total_loss, teacher_total_accuracy, student_total_accuracy = 0, 0, 0
 
-        for step, (pri_batch, pub_batch) in enumerate(zip(self.pri_val_loader, self.pub_val_loader)):
-            if step % 50 == 0 and not step == 0:
-                print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.pri_val_loader)))
-            pri_batch = [t.to(self.device) for t in pri_batch]
-            pub_batch = [t.to(self.device) for t in pub_batch]
-            pri_sent_id, pri_mask, pri_labels = pri_batch
-            pub_sent_id, pub_mask, pub_labels = pub_batch
+        for step, (test_batch, valid_pool) in enumerate(zip(self.testloader, self.validloader)):
+            if step % 10 == 0 and not step == 0:
+                print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.testloader)))
+            pri_batch = [t.to(self.device) for t in test_batch]
+            pub_pool = [t.to(self.device) for t in valid_pool]
+            pri_tok, pri_labels = pri_batch
+            pub_tok, pub_labels = pub_pool
+
             with torch.no_grad():
-                loss, student_preds, teacher_preds = self.get_loss(pub_sent_id, pub_mask, pri_sent_id, train=False)
+                # get the data representation and predictions from the student model
+                student_pri_lstm2, student_pri_fc1, student_pri_pred = self.student(pri_tok)
+                student_pub_lstm2, student_pub_fc1, student_pub_pred = self.student(pub_tok)
+
+                # find index of public data that is similar 
+                lstm = True
+                if lstm:
+                    sim_pub_index = find_similar(student_pri_lstm2, student_pub_lstm2, sim)
+                else:
+                    sim_pub_index = find_similar(student_pri_fc1, student_pub_fc1, sim)
+            
+                # get the similar public inputs and labels
+                sim_pub_tok, sim_pub_labels = pub_tok[sim_pub_index], pub_labels[sim_pub_index]
+            
+                # get teacher prediction on similar data
+                teacher_pub_lstm2, teacher_pub_fc1, teacher_pub_pred = self.teacher(sim_pub_tok)
+            
+                # get loss between student private prediction and teacher public prediction
+                loss = self.loss(student_pri_pred, teacher_pub_pred)
+                loss = loss.item()
                 total_loss += loss
-                teacher_total_accuracy += self.get_acc(teacher_preds, pub_labels)
-                student_total_accuracy += self.get_acc(student_preds, pri_labels)
-        avg_loss = total_loss / len(self.pri_val_loader)
-        student_avg_acc = student_total_accuracy / len(self.pri_val_loader) 
-        teacher_avg_acc = teacher_total_accuracy / len(self.pub_val_loader) 
+                teacher_total_accuracy += self.get_acc(teacher_pub_pred, sim_pub_labels)
+                student_total_accuracy += self.get_acc(student_pri_pred, pri_labels)
+        step += 1
+        avg_loss = total_loss / step
+        student_avg_acc = student_total_accuracy / step
+        teacher_avg_acc = teacher_total_accuracy / step
         return avg_loss, student_avg_acc, teacher_avg_acc
 
-    def run(self):
+    def run(self, sim):
         best_valid_loss = float('inf')
         train_losses, valid_losses = [], []
         student_train_accs, student_valid_accs = [], []
         teacher_train_accs, teacher_valid_accs = [], []
         for epoch in range(self.epochs):
             print('\n Epoch {:} / {:}'.format(epoch + 1, self.epochs))
-            train_loss, student_train_acc, teacher_train_acc = self.train()
-            valid_loss, student_valid_acc, teacher_train_acc = self.eval()
+            train_loss, student_train_acc, teacher_train_acc = self.train(sim)
+            valid_loss, student_valid_acc, teacher_train_acc = self.eval(sim)
 
             if valid_loss < best_valid_loss:
                 best_valid_loss = valid_loss

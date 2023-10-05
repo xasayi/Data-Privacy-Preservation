@@ -1,63 +1,41 @@
-from evaluate import load
-import random
-import numpy as np
-import pickle
-from numpy.linalg import norm
-import time
 import sys
 import torch
+import numpy as np
+from numpy.linalg import norm
 sys.path.insert(0, '/Users/sarinaxi/Desktop/Thesis')
-
-from SpamDetector.process_data import get_df
-from transformers import BertTokenizerFast
 
 device = torch.device("mps")
 
-def create_private_public(filename, index):
-    df = get_df(filename, index)
-    spam = np.array([[k,1] for k, v in zip(df['data'], df['label']) if v == 1])
-    ham = np.array([[k,0] for k, v in zip(df['data'], df['label']) if v == 0])
+def cosine(a, b):
+    return np.dot(a.detach().cpu().numpy(), b.detach().cpu().numpy())/ (norm(a.detach().cpu().numpy())*norm(b.detach().cpu().numpy()))
 
-    spam_half = random.sample(range(0, len(spam)), int(len(spam)//2))
-    ham_half = random.sample(range(0, len(ham)), int(len(ham)//2))
+def euclidean(a, b):
+    return np.sqrt(2-2*cosine(a.detach().cpu().numpy(), b.detach().cpu().numpy()))
 
-    spam_other = np.setdiff1d(np.arange(0, len(spam)-1), spam_half)
-    ham_other = np.setdiff1d(np.arange(0, len(ham)-1), ham_half)
-    private = np.concatenate((spam[spam_half], ham[ham_half]))
-    public = np.concatenate((spam[spam_other], ham[ham_other]))
-
-    np.random.shuffle(private)
-    np.random.shuffle(public)
-    print(len(private), len(public))
-    return private[2000:], public
-
-def similarity(reference, prediction):
-    bertscore = load("bertscore")
-    references = reference*len(prediction)
-    results = bertscore.compute(predictions=prediction, references=references, lang="en", model_type="distilbert-base-uncased", device=device, use_fast_tokenizer=True)
-    return results
+def find_similar(pri_batch, pub_pool, function):
+    if function == 'cosine':
+        f = cosine
+    if function == 'euclid':
+        f = euclidean
+    indices = []
+    for pri in pri_batch:
+        similarities = []
+        for pub in pub_pool:
+            similarities.append(f(pri, pub))
+        index = np.argmax(similarities)
+        while index in indices:
+            similarities[index] = 0
+            index = np.argmax(similarities)
+        indices.append(index)
+    return indices
 
 if __name__ == '__main__':
-    filename = '/Users/sarinaxi/Desktop/Thesis/SpamDetector/data/smsSpam/SMSSpamCollection.txt'
-    private, public = create_private_public(filename, -1)
-    
-    public_data = public[:, 0]
-    public_label = public[:, 1]
-
-    sim = []
-    for ind, i in enumerate(private):
-        start = time.time()
-        f1 = np.array(similarity([i[0]], public_data)['f1'])
-        index = np.argsort(f1)[::-1][:5]
-        sim.append([list(index), list(f1[index])])
-        end = time.time()
-        if ind % 10 == 0:
-            print(f'{ind} took {round(end-start, 2)} seconds.\n')
-
-    dic = {'private': private, 'public': public, 'similar': sim}
-    file_name = "/Users/sarinaxi/Desktop/Thesis/StudentTeacher/sim_new.pkl"
-
-    open_file = open(file_name, "wb")
-    pickle.dump(dic, open_file)
-    open_file.close()
+    a = np.array([1, 2])
+    b = np.array([3, 2])
+    print(cosine(a, b))
+    print(euclidean(a, b))
+    pri_batch = np.array([[1,2,3],[1,2,2], [3,2,1]])
+    pub_pool = np.array([[1,2,3],[2,3,4],[1,2,8],[7,2,3],[2,5,4],[0,2,8]])
+    indices = find_similar(pri_batch, pub_pool, 'euclid')
+    print(indices)
     
