@@ -35,8 +35,8 @@ class StudentTeacher(nn.Module):
         self.testloader = tokenize(tokenizer, test, args['input_size'], 'post', 'post', args['batch_size'], 'train', sampler)[0]
 
     def get_acc(self, preds, labels):
-        pred_y = np.argmax(preds.detach().cpu().numpy(), axis=1)
-        accuracy = np.sum([1 if pred_y[j] == labels[j] else 0 for j in range(len(labels))]) / len(labels)
+        preds = [1 if preds[j] >= 0.5 else 0 for j in range(len(preds))]
+        accuracy = np.sum([1 if preds[i] == labels[i] else 0 for i in range(len(labels))]) / len(labels)
         return accuracy
 
     def train(self, sim):
@@ -50,44 +50,57 @@ class StudentTeacher(nn.Module):
             pub_tok, pub_labels = pub_pool
             
             self.student.zero_grad()
+            print(f'Pri Labels{pri_labels.tolist()}')
             # get the data representation and predictions from the student model
             student_pri_lstm2, student_pri_fc1, student_pri_pred = self.student(pri_tok)
-            student_pub_lstm2, student_pub_fc1, student_pub_pred = self.student(pub_tok)
+            teacher_pri_lstm2, teacher_pri_fc1, teacher_pri_pred = self.teacher(pri_tok)
+            print(f'Tea Predic{[1 if i > 0.5 else 0 for i in teacher_pri_pred]}')
+            print(f'Stu Predic{[1 if i > 0.5 else 0 for i in student_pri_pred]}')
+            #student_pub_lstm2, student_pub_fc1, student_pub_pred = self.student(pub_tok)
 
             # find index of public data that is similar 
-            lstm = True
-            if lstm:
-                sim_pub_index = find_similar(student_pri_lstm2, student_pub_lstm2, sim)
-            else:
-                sim_pub_index = find_similar(student_pri_fc1, student_pub_fc1, sim)
+            #lstm = True
+            #if lstm:
+            #    sim_pub_index = find_similar(student_pri_lstm2, student_pub_lstm2, sim)
+            #else:
+            #    sim_pub_index = find_similar(student_pri_fc1, student_pub_fc1, sim)
             
             # get the similar public inputs and labels
-            sim_pub_tok, sim_pub_labels = pub_tok[sim_pub_index], pub_labels[sim_pub_index]
-            
+            #sim_pub_tok, sim_pub_labels = pub_tok[sim_pub_index], pub_labels[sim_pub_index]
+            #print(f'Pub_sim Labels{sim_pub_labels.tolist()}')
             # get teacher prediction on similar data
-            teacher_pub_lstm2, teacher_pub_fc1, teacher_pub_pred = self.teacher(sim_pub_tok)
-            
+            #teacher_pub_lstm2, teacher_pub_fc1, teacher_pub_pred = self.teacher(sim_pub_tok)
+            # sanity check 
+            #teacher_pub_lstm2, teacher_pub_fc1, teacher_pub_pred = self.teacher(pri_tok)
+            #print(f'Tea_pub Predic{[1 if i > 0.5 else 0 for i in teacher_pub_pred]}')
+            #print(f'Stu_pri Predic{[1 if i > 0.5 else 0 for i in student_pri_pred]}')
             # get loss between student private prediction and teacher public prediction
-            loss = self.loss(student_pri_pred, teacher_pub_pred)
+            #loss = self.loss(student_pri_pred, teacher_pub_pred)
+            loss = self.loss(student_pri_pred, teacher_pri_pred)
             incre_loss = loss.item()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.student.parameters(), 1.0)
             self.optimizer.step()
 
             # print outputs
-            if step % 50 == 0 and not step == 0:
+            if step % 10 == 0 and not step == 0:
                 print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.testloader)))
                 output = np.argmax(student_pri_pred.detach().cpu().numpy(), axis=1)
                 print(f'Student Pred: {output}')
                 print(f'Student Targ: {pri_labels.detach().cpu().numpy()}')
 
-                output = np.argmax(teacher_pub_pred.detach().cpu().numpy(), axis=1)
+                output = np.argmax(teacher_pri_pred.detach().cpu().numpy(), axis=1)
+                #output = np.argmax(teacher_pub_pred.detach().cpu().numpy(), axis=1)
                 print(f'Teacher Pred: {output}')
-                print(f'Teacher Targ: {sim_pub_labels.detach().cpu().numpy()}')
+                #print(f'Teacher Targ: {sim_pub_labels.detach().cpu().numpy()}')
+                print(f'Teacher Targ: {pri_labels.detach().cpu().numpy()}')
 
             total_loss += incre_loss
-            teacher_total_accuracy += self.get_acc(teacher_pub_pred, sim_pub_labels)
+            #teacher_total_accuracy += self.get_acc(teacher_pub_pred, sim_pub_labels)
+            # sanity check
+            teacher_total_accuracy += self.get_acc(teacher_pri_pred, pri_labels)
             student_total_accuracy += self.get_acc(student_pri_pred, pri_labels)
+        step += 1
         avg_loss = total_loss / step
         student_avg_acc = student_total_accuracy / step
         teacher_avg_acc = teacher_total_accuracy / step
@@ -99,7 +112,7 @@ class StudentTeacher(nn.Module):
         total_loss, teacher_total_accuracy, student_total_accuracy = 0, 0, 0
 
         for step, (test_batch, valid_pool) in enumerate(zip(self.testloader, self.validloader)):
-            if step % 50 == 0 and not step == 0:
+            if step % 10 == 0 and not step == 0:
                 print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.testloader)))
             pri_batch = [t.to(self.device) for t in test_batch]
             pub_pool = [t.to(self.device) for t in valid_pool]
@@ -130,6 +143,7 @@ class StudentTeacher(nn.Module):
                 total_loss += loss
                 teacher_total_accuracy += self.get_acc(teacher_pub_pred, sim_pub_labels)
                 student_total_accuracy += self.get_acc(student_pri_pred, pri_labels)
+        step += 1
         avg_loss = total_loss / step
         student_avg_acc = student_total_accuracy / step
         teacher_avg_acc = teacher_total_accuracy / step
