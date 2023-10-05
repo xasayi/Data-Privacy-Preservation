@@ -7,10 +7,10 @@ import numpy as np
 sys.path.insert(0, '/Users/sarinaxi/Desktop/Thesis')
 
 from SpamDetector.plotting_analytics import plot_loss_acc
-from StudentTeacherGRU.model import EmbedModel, LSTMModel
-from StudentTeacherGRU.student_teacher import StudentTeacher
-from StudentTeacherGRU.process_data import process_data, read_data
-from StudentTeacherGRU.spam_detector import SpamDetector, model_performance
+from StudentTeacher.model import EmbedModel, LSTMModel
+from StudentTeacher.student_teacher import StudentTeacher
+from StudentTeacher.process_data import process_data, read_data
+from StudentTeacher.spam_detector import SpamDetector, model_performance
 
 def args_and_init(student, teacher):
     # check GPU, don't use it since there's a bug with GRU

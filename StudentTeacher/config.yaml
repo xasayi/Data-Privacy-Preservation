@@ -1,6 +1,6 @@
 file_name: '/Users/sarinaxi/Desktop/Thesis/SpamDetector/data/smsSpam/SMSSpamCollection.txt'
 StudentPT:
-    folder: 'StudentTeacherGRU/results/StudentPreTrain'
+    folder: 'StudentTeacher/results/StudentPreTrain'
     name: 'student.pt'
     dropout: 0.1
     lr: 0.0009
@@ -15,7 +15,7 @@ StudentPT:
     embed_size: 20
     
 TeacherPT:
-    folder: 'StudentTeacherGRU/results/TeacherTestCombo2'
+    folder: 'StudentTeacher/results/TeacherTestCombo2'
     name: 'teacher.pt'
     dropout: 0.2
     lr: 0.0005
@@ -30,7 +30,7 @@ TeacherPT:
     embed_size: 20
     
 StudentTeacher:
-    folder: 'StudentTeacherGRU/results/test_student_teacher'
+    folder: 'StudentTeacher/results/test_student_teacher'
     name: 'test_student_teacher.pt'
     factor: 10
     dropout: 0.2

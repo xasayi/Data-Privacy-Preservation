@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 from transformers import AdamW
-from StudentTeacherGRU.process_data import tokenize, get_data, split_data
-from StudentTeacherGRU.similarity import find_similar
+from StudentTeacher.process_data import tokenize, get_data, split_data
+from StudentTeacher.similarity import find_similar
 from tensorflow.keras.preprocessing.text import Tokenizer
 from torch.utils.data import RandomSampler
 
