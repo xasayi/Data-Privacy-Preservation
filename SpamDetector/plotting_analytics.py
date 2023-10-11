@@ -10,7 +10,7 @@ def plot_loss_acc(train, valid, type, folder):
     plt.plot(train, label = f'Train {type}')
     plt.plot(valid, label = f'Valid {type}')
     plt.xlabel('Steps')
-    plt.xlabel(type)
+    plt.ylabel(type)
     plt.legend()
     os.makedirs(folder, exist_ok=True)
     plt.savefig(f'{folder}/{type}.png')

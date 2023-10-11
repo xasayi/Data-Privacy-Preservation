@@ -8,6 +8,7 @@ from torch.utils.data import TensorDataset, DataLoader, SequentialSampler, Rando
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import tensorflow as tf
+from transformers import BertTokenizerFast
 
 def read_data(filename):
     with open(filename) as f:
@@ -38,26 +39,74 @@ def tokenize(tokenizer, data, max_len, padding_type, trunc_type, bs, type, sampl
         return dataloader, weight
     return (training_padded, data[1])
 
-def process_data(df, vocab_size, splits, bs, max_seq, padding_type, trunc_type, downsample, sampler=SequentialSampler):
-    dic1 = get_data(df, downsample)
+def tokenize_bert(tokenizer, data, max_len, bs, type, sampler):
+    tokenizer.pad_token = '[PAD]'
+    tokenized_data = tokenizer.batch_encode_plus(data[0], max_length=max_len,
+                                               padding=True, truncation=True, return_token_type_ids=False)
+    data_seq = torch.tensor(tokenized_data['input_ids'])
+    #data_mask = torch.tensor(tokenized_data['attention_mask'])
+    data_y = torch.tensor(data[1])
 
+    if type in ['train', 'valid']:
+        datas = TensorDataset(data_seq, data_y)
+        sampler = sampler(datas)
+        dataloader = DataLoader(datas, sampler=sampler, batch_size=bs)
+        weight = get_weights(data[1]) if type == 'train' else None
+        return dataloader, weight
+    return (data_seq, data[1])
+
+def process_data(df, splits, bs, max_seq, downsample, sampler=SequentialSampler, vocab_size=1000):
+    dic1 = get_data(df, downsample)
+    
     tokenizer = Tokenizer(num_words = vocab_size, char_level=False, oov_token = "<OOV>")
     tokenizer.fit_on_texts(dic1['data'])
     
     train, valid, test = split_data(dic1, splits)
-    train_dataloader, train_weight = tokenize(tokenizer, train, max_seq, padding_type, trunc_type, bs, 'train', sampler)
-    valid_dataloader = tokenize(tokenizer, valid, max_seq, padding_type, trunc_type, bs, 'valid', sampler)[0]
-    test_data = tokenize(tokenizer, test, max_seq, padding_type, trunc_type, bs, 'test', sampler)
+    train_dataloader, train_weight = tokenize(tokenizer, train, max_seq, 'post', 'post', bs, 'train', sampler)
+    valid_dataloader = tokenize(tokenizer, valid, max_seq, 'post', 'post', bs, 'valid', sampler)[0]
+    test_data = tokenize(tokenizer, test, max_seq, 'post', 'post', bs, 'test', sampler)
+
+    return train_dataloader, valid_dataloader, test_data, train_weight
+
+def process_data_bert(df, splits, bs, max_seq, downsample, sampler=SequentialSampler):
+    dic1 = get_data(df, downsample)
+    dic1 = {i: dic1[i].tolist() for i in list(dic1)}
+    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+    if not max_seq:
+        seq_len = [len(i.split()) for i in train[0]]
+        max_seq = min(int(np.ceil((pd.Series(seq_len).describe()['75%']) / 5) * 5), 100)
+    print(f'Max sequence length is: {max_seq}')
+    
+    train, valid, test = split_data(dic1, splits)
+    train_dataloader, train_weight = tokenize_bert(tokenizer, train, max_seq, bs, 'train', sampler)
+    valid_dataloader = tokenize_bert(tokenizer, valid, max_seq, bs, 'valid', sampler)[0]
+    test_data = tokenize_bert(tokenizer, test, max_seq, bs, 'test', sampler)
 
     return train_dataloader, valid_dataloader, test_data, train_weight
 
 if __name__ == '__main__':
     filename = '/Users/sarinaxi/Desktop/Thesis/SpamDetector/data/smsSpam/SMSSpamCollection.txt'
-
+    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+    print(tokenizer.vocab_size)
+    '''
     df = read_data(filename)
-    sampler = RandomSampler
-    a, b, c, d = process_data(df, 40, 0.3, 16, 40, 'post', 'post', True, sampler)
-    print(d)
+    train_dataloader, valid_dataloader, test_data, train_weight = process_data_bert(df, 0.3, 16, 40, False)
+    for i in train_dataloader:
+        input, label = i
+        print(input.shape)
+        print(label)
+        break
+    
+    train_dataloader, valid_dataloader, test_data, train_weight = process_data(df, 0.3, 16, 40, False)
+    for i in train_dataloader:
+        input, label = i
+        print(input.shape)
+        print(label)
+        break
+    '''
+    #sampler = RandomSampler
+    # a, b, c, d = process_data(df, 40, 0.3, 16, 40, 'post', 'post', True, sampler)
+    #print(d)
 
     #mask = df['type'] == 'ham'
     #ham, spam = df[mask], df[~mask]
