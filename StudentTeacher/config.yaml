@@ -1,11 +1,11 @@
 file_name: '/Users/sarinaxi/Desktop/Thesis/SpamDetector/data/smsSpam/SMSSpamCollection.txt'
 StudentPT:
-    folder: 'StudentTeacher/results/StudentPreTrain'
+    folder: 'StudentTeacher/results/StudentBertDownsampledEarlyStop20%data'
     name: 'student.pt'
     dropout: 0.1
-    lr: 0.0009
-    splits: 0.2
-    epochs: 20
+    lr: 0.0008
+    splits: 0.3
+    epochs: 25
     downsample: True
 
     input_size: 40
@@ -15,13 +15,13 @@ StudentPT:
     embed_size: 20
     
 TeacherPT:
-    folder: 'StudentTeacher/results/TeacherTestCombo2'
+    folder: 'StudentTeacher/results/TestSTComboBert'
     name: 'teacher.pt'
-    dropout: 0.2
-    lr: 0.0005
-    splits: 0.5
-    epochs: 30
-    downsample: True
+    dropout: 0.1
+    lr: 0.0008
+    splits: 0.3
+    epochs: 20
+    downsample: False
 
     input_size: 40
     vocab_size: 1000
@@ -30,11 +30,11 @@ TeacherPT:
     embed_size: 20
     
 StudentTeacher:
-    folder: 'StudentTeacher/results/test_student_teacher'
-    name: 'test_student_teacher.pt'
+    folder: 'StudentTeacher/results/TestSTComboBert'
+    name: 'student_teacher.pt'
     factor: 10
     dropout: 0.2
-    lr: 0.0005
+    lr: 0.0004
     batch_size: 16
     splits: 0.3
     epochs: 30
@@ -42,4 +42,4 @@ StudentTeacher:
     input_size: 40
     vocab_size: 1000
     hidden_size: 10
-    downsample: False
+    downsample: True
