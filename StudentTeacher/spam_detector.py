@@ -11,7 +11,7 @@ class SpamDetector(nn.Module):
         self.model = model
         self.optimizer = AdamW(self.model.parameters(), lr = lr)
         self.train_dataloader, self.valid_dataloader, self.test_data, weights = train_dataloader, valid_dataloader, test_data, weights
-        self.loss  = nn.BCELoss() 
+        self.loss  = nn.NLLLoss(weights) 
         self.epochs = epochs
         self.batch_size = batch_size
         self.weight_path = weight_path 
@@ -20,7 +20,6 @@ class SpamDetector(nn.Module):
     
     def get_loss(self, sent_id, labels, train=True):
         preds = self.model(sent_id)[-1]
-        labels = torch.unsqueeze(labels, dim=1).float()
         loss = self.loss(preds, labels)
         total_loss = loss.item()
         if train:
@@ -28,9 +27,9 @@ class SpamDetector(nn.Module):
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             self.optimizer.step()
         return total_loss, preds
- 
+
     def get_acc(self, preds, labels):
-        preds = [1 if preds[j] >= 0.5 else 0 for j in range(len(preds))]
+        preds = preds.argmax(dim=1)
         accuracy = np.sum([1 if preds[i] == labels[i] else 0 for i in range(len(labels))]) / len(labels)
         return accuracy
 
@@ -43,10 +42,10 @@ class SpamDetector(nn.Module):
             sent_id, labels = batch
             self.model.zero_grad()
             loss, preds = self.get_loss(sent_id, labels)
-            if step % 50 == 0 and not step == 0:
+            if step % 10 == 0 and not step == 0:
                 print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.train_dataloader)))
-                output = np.array([1 if  preds[j] >= 0.5 else 0 for j in range(len(preds))])
-                print(f'Pred: {output}')
+                output = preds.argmax(dim=1)
+                print(f'Pred: {output.detach().cpu().numpy()}')
                 print(f'Targ: {labels.detach().cpu().numpy()}')
 
             total_loss += loss
@@ -61,7 +60,7 @@ class SpamDetector(nn.Module):
         total_loss, total_accuracy = 0, 0
 
         for step,batch in enumerate(self.valid_dataloader):
-            if step % 50 == 0 and not step == 0:
+            if step % 10 == 0 and not step == 0:
                 print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.valid_dataloader)))
             batch = [t.to(self.device) for t in batch]
             sent_id, labels = batch
@@ -100,17 +99,22 @@ class SpamDetector(nn.Module):
 def model_performance(args, model, test_seq, test_y, device, folder):
     with torch.no_grad():
         preds = model(torch.tensor(test_seq).to(device))[-1]
-        preds = preds.detach().cpu().numpy()
-    preds = [1 if preds[i] > 0.5 else 0 for i in range(len(preds))]
+    preds = preds.argmax(dim=1).detach().cpu().numpy()
     with open(f'{folder}/results.txt', 'w') as f:
         report = classification_report(test_y, preds)
         confusion_matrix = pd.crosstab(test_y, preds)
         f.write(report)
         f.write(str(confusion_matrix))
+        
         f.write(f'\ndropout: {args["dropout"]}\n')
         f.write(f'lr: {args["lr"]}\n')
         f.write(f'batch_size: {args["batch_size"]}\n')
         f.write(f'splits: {args["splits"]}\n')
-        f.write(f'epochs: {args["epochs"]}\n')
+        f.write(f'epochs: {args["epochs"]}\n\n')
+        f.write(f'input_embeding_size: {args["input_size"]}\n')
+        f.write(f'downsample: {args["downsample"]}\n')
+        f.write(f'hidden_size: {args["hidden_size"]}\n')
+        f.write(f'embed_size: {args["embed_size"]}\n')
+
         print(report)
         print(str(confusion_matrix))

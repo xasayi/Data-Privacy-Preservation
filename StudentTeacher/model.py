@@ -8,8 +8,8 @@ class EmbedModel(nn.Module):
         self.linear1 = nn.Linear(embedding_size, linear_size)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
-        self.linear2 = nn.Linear(linear_size, 1)
-        self.sigmoid = nn.Sigmoid()
+        self.linear2 = nn.Linear(linear_size, 2)
+        self.softmax = nn.LogSoftmax()
 
     def forward(self, x):
         x_embed = self.embed(x)
@@ -18,7 +18,7 @@ class EmbedModel(nn.Module):
         fc1 = self.relu(fc1)
         fc1 = self.dropout(fc1)
         fc2 = self.linear2(fc1)
-        pred = self.sigmoid(fc2)
+        pred = self.softmax(fc2)
         return fc1, fc2, pred
     
 class LSTMModel(nn.Module):
@@ -29,8 +29,8 @@ class LSTMModel(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
         self.lstm2 = nn.LSTM(linear_size, 10)
         self.dropout2 = nn.Dropout(dropout)
-        self.linear1 = nn.Linear(10, 1)
-        self.sigmoid = nn.Sigmoid()
+        self.linear1 = nn.Linear(10, 2)
+        self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x):
         x_embed = self.embed(x)
@@ -40,5 +40,5 @@ class LSTMModel(nn.Module):
         lstm2, _ = self.lstm2(lstm1.view(len(lstm1), -1))
         lstm2 = self.dropout2(lstm2)
         fc1 = self.linear1(lstm2)
-        pred = self.sigmoid(fc1)
-        return lstm2, fc1, pred
+        pred = self.softmax(fc1)
+        return lstm2, pred

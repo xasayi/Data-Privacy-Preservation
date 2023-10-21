@@ -56,9 +56,9 @@ def pre_train(model, args, df):
     plot_loss_acc(train_losses, valid_losses, 'Loss', args['folder'])
     plot_loss_acc(train_acc, valid_accs, 'Acc', args['folder'])
 
-def check_ptmodel(model, args, df):
+def check_ptmodel(model, args, df, downsample):
     train_loader, valid_loader, test_data, weight = process_data_bert(df=df, splits=args['splits'], 
-                                                                 bs=args['batch_size'], max_seq=args['input_size'], downsample=args['downsample'])
+                                                                 bs=args['batch_size'], max_seq=args['input_size'], downsample=downsample)
     agent = SpamDetector(model=model, train_dataloader=train_loader, device=device, lr=args['lr'], 
                                         batch_size=args['batch_size'], valid_dataloader=valid_loader, epochs=args['epochs'], 
                                         test_data=test_data, weights=weight, folder=args['folder'], weight_path=args['name'])
@@ -80,10 +80,10 @@ if __name__ == '__main__':
 
     #pre_train(student, st_args, df2)
     #pre_train(teacher, te_args, df)
-    #check_ptmodel(teacher, te_args, df)
-    #check_ptmodel(student, st_args, df)
-    #agent = StudentTeacher(df, teacher, student, device, args)
-    #train_losses, student_train_accs, valid_losses, student_valid_accs, teacher_train_accs, teacher_valid_accs = agent.run('cosine')
+    check_ptmodel(teacher, te_args, df, True)
+    check_ptmodel(student, st_args, df, True)
+    agent = StudentTeacher(df, teacher, student, device, args)
+    train_losses, student_train_accs, valid_losses, student_valid_accs, teacher_train_accs, teacher_valid_accs = agent.run('cosine')
     '''for i in train_loader:
         pred_s = student(i[0])
         pred_t = teacher(i[0])
@@ -92,7 +92,6 @@ if __name__ == '__main__':
         print([1 if i > 0.5 else 0 for i in pred_t[-1].flatten()])
         break
 
-    
     for i in train_loader:
         pred_s = student(i[0])
         pred_t = teacher(i[0])
@@ -109,29 +108,29 @@ if __name__ == '__main__':
         break
     '''
     
-    #plot_loss_acc(train_losses, valid_losses, 'Loss', args['folder'])
-    #plot_loss_acc(student_train_accs, student_valid_accs, 'Student Acc', args['folder'])
-    #plot_loss_acc(teacher_train_accs, teacher_valid_accs, 'Teacher Acc', args['folder'])
+    plot_loss_acc(train_losses, valid_losses, 'Loss', args['folder'])
+    plot_loss_acc(student_train_accs, student_valid_accs, 'Student Acc', args['folder'])
+    plot_loss_acc(teacher_train_accs, teacher_valid_accs, 'Teacher Acc', args['folder'])
     #pre_train(teacher, te_args, df)
     #student_agent = pre_train(student, st_args, student_df)
     #student_agent.model.load_state_dict(torch.load(f"{st_args['folder']}/{st_args['name']}"))
     #model_performance(st_args, student_agent.model, student_agent.test_data[0], student_agent.test_data[1], device, st_args['folder'])
     #check_ptmodel(teacher, te_args, df)
     #check_ptmodel(student, st_args, df)
-    
+    '''
     args = te_args
     train_loss, valid_loss, train_acc, valid_acc = [], [], [], []
     for i in range(3):
 
-        train_loader, valid_loader, test_data, weight = process_data_bert(df=df, splits=args['splits'], 
-                                                                 bs=args['batch_size'], max_seq=args['input_size'], downsample=True)
+        train_loader, valid_loader, test_data, weight = process_data(df=df, splits=args['splits'], 
+                                                                 bs=args['batch_size'], max_seq=args['input_size'], downsample=False)
         agent = SpamDetector(model=teacher, train_dataloader=train_loader, device=device, lr=args['lr'], 
-                                        batch_size=args['batch_size'], valid_dataloader=valid_loader, epochs=5, 
+                                        batch_size=args['batch_size'], valid_dataloader=valid_loader, epochs=12, 
                                         test_data=test_data, weights=weight, folder=args['folder'], weight_path=args['name'])
         train_losses1, train_acc1, valid_losses1, valid_accs1 = agent.run()
         
         agent.train_dataloader, agent.valid_dataloader, agent.test_data, weight = process_data_bert(df=df, splits=args['splits'], 
-                                                                 bs=args['batch_size'], max_seq=args['input_size'], downsample=False)
+                                                                 bs=args['batch_size'], max_seq=args['input_size'], downsample=True)
         train_losses2, train_acc2, valid_losses2, valid_accs2 = agent.run()
     
         train_loss += train_losses1 + train_losses2
@@ -140,5 +139,4 @@ if __name__ == '__main__':
         valid_acc += valid_accs1 + valid_accs2
     plot_loss_acc(train_loss, valid_loss, 'Loss', args['folder'])
     plot_loss_acc(train_acc, valid_acc, 'Acc', args['folder'])
-    
-    
+    '''
