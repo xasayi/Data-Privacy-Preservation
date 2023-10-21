@@ -7,7 +7,8 @@ sys.path.insert(0, '/Users/sarinaxi/Desktop/Thesis')
 device = torch.device("mps")
 
 def cosine(a, b):
-    return np.dot(a.detach().cpu().numpy(), b.detach().cpu().numpy())/ (norm(a.detach().cpu().numpy())*norm(b.detach().cpu().numpy()))
+    angle = np.dot(a.detach().cpu().numpy(), b.detach().cpu().numpy())/ (norm(a.detach().cpu().numpy())*norm(b.detach().cpu().numpy()))
+    return angle
 
 def euclidean(a, b):
     return np.sqrt(2-2*cosine(a.detach().cpu().numpy(), b.detach().cpu().numpy()))
@@ -38,4 +39,3 @@ if __name__ == '__main__':
     pub_pool = np.array([[1,2,3],[2,3,4],[1,2,8],[7,2,3],[2,5,4],[0,2,8]])
     indices = find_similar(pri_batch, pub_pool, 'euclid')
     print(indices)
-    
