@@ -1,31 +1,31 @@
 file_name: '/Users/sarinaxi/Desktop/Thesis/SpamDetector/data/smsSpam/SMSSpamCollection.txt'
 StudentPT:
-    folder: 'StudentTeacher/results/PT_S_20%7epoch'
+    folder: 'StudentTeacher/results/sentiment'
     name: 'student.pt'
     dropout: 0.1
     lr: 0.0008
     splits: 0.25
     epochs: 7
-    downsample: False
+    downsample: True
 
-    input_size: 40
-    batch_size: 16
-    hidden_size: 10
-    embed_size: 20
+    input_size: 50
+    batch_size: 32
+    hidden_size: 50
+    embed_size: 100
     
 TeacherPT:
-    folder: 'StudentTeacher/results/PT_T_full20epoch'
+    folder: 'StudentTeacher/results/sentiment_spam_detector_arch_withL2reg_2_downsample'
     name: 'teacher.pt'
-    dropout: 0.1
+    dropout: 0.2
     lr: 0.0008
-    splits: 0.25
+    splits: 0.2
     epochs: 20
-    downsample: False
+    downsample: True
 
-    input_size: 40
-    batch_size: 16
-    hidden_size: 10
-    embed_size: 20
+    input_size: 50
+    batch_size: 32
+    hidden_size: 50
+    embed_size: 100
     
 StudentTeacher:
     folder: 'StudentTeacher/results/TEST3'
@@ -37,8 +37,9 @@ StudentTeacher:
     splits: 0.3
     epochs: 50
 
-    input_size: 40
-    vocab_size: 1000
-    hidden_size: 10
-    downsample: False
+    input_size: 50
+    batch_size: 32
+    hidden_size: 50
+    embed_size: 100
+    downsample: True
     similarity: 'cosine'

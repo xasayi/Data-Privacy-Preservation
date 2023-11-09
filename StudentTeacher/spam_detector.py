@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from transformers import AdamW
+from torch.optim import AdamW
 import pandas as pd
 from sklearn.metrics import classification_report
 
@@ -9,7 +9,7 @@ class SpamDetector(nn.Module):
     def __init__(self, model, train_dataloader, device, lr, batch_size, valid_dataloader, epochs, test_data, weights, folder, weight_path):
         super(SpamDetector, self).__init__()
         self.model = model
-        self.optimizer = AdamW(self.model.parameters(), lr = lr)
+        self.optimizer = AdamW(self.model.parameters(), lr = lr, weight_decay=1e-3)
         self.train_dataloader, self.valid_dataloader, self.test_data, weights = train_dataloader, valid_dataloader, test_data, weights
         self.loss  = nn.NLLLoss(weights) 
         self.epochs = epochs
@@ -42,11 +42,11 @@ class SpamDetector(nn.Module):
             sent_id, labels = batch
             self.model.zero_grad()
             loss, preds = self.get_loss(sent_id, labels)
-            if step % 10 == 0 and not step == 0:
+            if step % 100 == 0 and not step == 0:
                 print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.train_dataloader)))
                 output = preds.argmax(dim=1)
-                print(f'Pred: {output.detach().cpu().numpy()}')
-                print(f'Targ: {labels.detach().cpu().numpy()}')
+                print(f'Pred: {list(output.detach().cpu().numpy())}')
+                print(f'Targ: {list(labels.detach().cpu().numpy())}')
 
             total_loss += loss
             total_accuracy += self.get_acc(preds, labels)
@@ -60,14 +60,18 @@ class SpamDetector(nn.Module):
         total_loss, total_accuracy = 0, 0
 
         for step,batch in enumerate(self.valid_dataloader):
-            if step % 10 == 0 and not step == 0:
-                print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.valid_dataloader)))
+            
             batch = [t.to(self.device) for t in batch]
             sent_id, labels = batch
             with torch.no_grad():
                 loss, preds = self.get_loss(sent_id, labels, train=False)
                 total_loss += loss
                 total_accuracy += self.get_acc(preds, labels)
+                if step % 100 == 0 and not step == 0:
+                    print('  Batch {:>5,}  of  {:>5,}.'.format(step, len(self.valid_dataloader)))
+                    output = preds.argmax(dim=1)
+                    print(f'Pred: {list(output.detach().cpu().numpy())}')
+                    print(f'Targ: {list(labels.detach().cpu().numpy())}')
         avg_loss = total_loss / len(self.valid_dataloader)
         avg_acc = total_accuracy / len(self.valid_dataloader)
         return avg_loss, avg_acc

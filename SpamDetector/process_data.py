@@ -18,10 +18,10 @@ def get_df(filename, index=None):
 
 def split_data(df, valtest_size):
     train_data, temp_data, train_labels, temp_labels = train_test_split(df['data'], df['label'], 
-                                                                      random_state=2023, test_size=valtest_size, 
+                                                                      random_state=44, test_size=valtest_size, 
                                                                       stratify=df['label'])
     val_data, test_data, val_labels, test_labels = train_test_split(temp_data, temp_labels, 
-                                                                  random_state=2023, test_size=0.5, 
+                                                                  random_state=44, test_size=0.5, 
                                                                   stratify=temp_labels)
     return (train_data, train_labels), (val_data, val_labels), (test_data, test_labels)
  

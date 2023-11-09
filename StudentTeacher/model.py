@@ -42,3 +42,25 @@ class LSTMModel(nn.Module):
         fc1 = self.linear1(lstm2)
         pred = self.softmax(fc1)
         return lstm2, pred
+    
+class LSTMModelMulti(nn.Module):
+    def __init__(self, size, vocab_size, embedding_size, linear_size, dropout):
+        super(LSTMModelMulti, self).__init__()
+        self.embed = nn.Embedding(vocab_size, embedding_size, max_norm=True)
+        self.lstm1 = nn.LSTM(embedding_size, linear_size)
+        self.dropout1 = nn.Dropout(dropout)
+        self.lstm2 = nn.LSTM(linear_size, 25)
+        self.dropout2 = nn.Dropout(dropout)
+        self.linear1 = nn.Linear(25, size)
+        self.softmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, x):
+        x_embed = self.embed(x)
+        x_embed = torch.mean(x_embed, dim=1)
+        lstm1, _ = self.lstm1(x_embed.view(len(x_embed), -1))
+        lstm1 = self.dropout1(lstm1)
+        lstm2, _ = self.lstm2(lstm1.view(len(lstm1), -1))
+        lstm2 = self.dropout2(lstm2)
+        fc1 = self.linear1(lstm2)
+        pred = self.softmax(fc1)
+        return lstm2, pred
