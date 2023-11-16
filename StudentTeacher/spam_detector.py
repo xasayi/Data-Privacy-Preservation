@@ -9,7 +9,7 @@ class SpamDetector(nn.Module):
     def __init__(self, model, train_dataloader, device, lr, batch_size, valid_dataloader, epochs, test_data, weights, folder, weight_path):
         super(SpamDetector, self).__init__()
         self.model = model
-        self.optimizer = AdamW(self.model.parameters(), lr = lr, weight_decay=1e-3)
+        self.optimizer = AdamW(self.model.parameters(), lr = lr, weight_decay=0.01)
         self.train_dataloader, self.valid_dataloader, self.test_data, weights = train_dataloader, valid_dataloader, test_data, weights
         self.loss  = nn.NLLLoss(weights) 
         self.epochs = epochs
@@ -24,7 +24,7 @@ class SpamDetector(nn.Module):
         total_loss = loss.item()
         if train:
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            #torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             self.optimizer.step()
         return total_loss, preds
 

@@ -6,7 +6,7 @@ StudentPT:
     lr: 0.0008
     splits: 0.25
     epochs: 7
-    downsample: True
+    downsample: False
 
     input_size: 50
     batch_size: 32
@@ -14,18 +14,19 @@ StudentPT:
     embed_size: 100
     
 TeacherPT:
-    folder: 'StudentTeacher/results/sentiment_spam_detector_arch_withL2reg_2_downsample'
+    folder: 'StudentTeacher/results/sentiment_spam_detector_arch_withL2reg_2_bi_2layer1fc_01weightdecay_randomsampler_changeorder_smaller2_bertlarge'
     name: 'teacher.pt'
-    dropout: 0.2
-    lr: 0.0008
-    splits: 0.2
-    epochs: 20
-    downsample: True
+    dropout: 0.1
+    lr: 0.005
+    splits: 0.9
+    epochs: 15
+    downsample: False
 
     input_size: 50
-    batch_size: 32
-    hidden_size: 50
-    embed_size: 100
+    batch_size: 64
+    hidden_size: 128
+    embed_size: 128
+    hidden: [40, 32, 16]
     
 StudentTeacher:
     folder: 'StudentTeacher/results/TEST3'
@@ -41,5 +42,5 @@ StudentTeacher:
     batch_size: 32
     hidden_size: 50
     embed_size: 100
-    downsample: True
+    downsample: False
     similarity: 'cosine'

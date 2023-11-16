@@ -59,7 +59,7 @@ def tokenize_bert(tokenizer, data, max_len, bs, type, sampler):
         return dataloader, weight
     return (data_seq, data[1])
 
-def process_data(df, splits, bs, max_seq, downsample, sampler=SequentialSampler, vocab_size=1000):
+def process_data(df, splits, bs, max_seq, downsample, sampler=RandomSampler, vocab_size=1000):
     dic1 = get_data(df, downsample)
     
     tokenizer = Tokenizer(num_words = vocab_size, char_level=False, oov_token = "<OOV>")
@@ -72,10 +72,10 @@ def process_data(df, splits, bs, max_seq, downsample, sampler=SequentialSampler,
 
     return train_dataloader, valid_dataloader, test_data, train_weight
 
-def process_data_bert(df, splits, bs, max_seq, downsample, map, sampler=SequentialSampler):
+def process_data_bert(df, splits, bs, max_seq, downsample, map, sampler=RandomSampler):
     dic1 = get_data(df, downsample, map)
     dic1 = {i: dic1[i].tolist() for i in list(dic1)}
-    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+    tokenizer = BertTokenizerFast.from_pretrained('bert-large-uncased')
     if not max_seq:
         seq_len = [len(i.split()) for i in train[0]]
         max_seq = min(int(np.ceil((pd.Series(seq_len).describe()['75%']) / 5) * 5), 100)

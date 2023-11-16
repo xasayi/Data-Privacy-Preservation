@@ -22,7 +22,7 @@ if __name__ == '__main__':
                                                                  downsample=args['downsample'], map=map)
     print('here')
     #student = LSTMModel(30522, st_args['embed_size'], st_args['hidden_size'], st_args['dropout']).to(device)
-    teacher = LSTMModelMulti(6, 30522, te_args['embed_size'], te_args['hidden_size'], te_args['dropout']).to(device)
+    teacher = LSTMModelMulti(6, 30522, te_args['hidden'], te_args['dropout']).to(device)
     pre_train(teacher, te_args, df, map)
     check_ptmodel(teacher, te_args, df, True, map)
     
