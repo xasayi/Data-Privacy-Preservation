@@ -11,12 +11,12 @@ from StudentTeacher.model import EmbedModel, LSTMModel
 from StudentTeacher.student_teacher import StudentTeacher
 from StudentTeacher.process_data import process_data, process_data_bert
 from StudentTeacher.spam_detector import SpamDetector, model_performance
-
-def args_and_init(student, teacher):
+device = torch.device("cpu")
+def args_and_init(student, teacher, config_file):
     # check GPU, don't use it since there's a bug with GRU
     print(torch.backends.mps.is_available())
     print(torch.backends.mps.is_built())
-    with open("StudentTeacher/config.yaml", 'r') as f:
+    with open(config_file, 'r') as f:
         config = yaml.safe_load(f)
     st_args, te_args = None, None
     if student:
@@ -46,9 +46,11 @@ def split_df(df, ratio):
     ret_other = ret_other.reindex(np.random.permutation(ret_other.index)).reset_index(drop=True)
     return ret_ratio, ret_other
 
-def pre_train(model, args, df):
+def pre_train(model, args, df, map, device=device):
     train_loader, valid_loader, test_data, weight = process_data_bert(df=df, splits=args['splits'], 
-                                                                 bs=args['batch_size'], max_seq=args['input_size'], downsample=args['downsample'])
+                                                                 bs=args['batch_size'], max_seq=args['input_size'], 
+                                                                 map=map, downsample=args['downsample'])
+    print(weight)
     agent = SpamDetector(model=model, train_dataloader=train_loader, device=device, lr=args['lr'], 
                                         batch_size=args['batch_size'], valid_dataloader=valid_loader, epochs=args['epochs'], 
                                         test_data=test_data, weights=weight, folder=args['folder'], weight_path=args['name'])
@@ -56,9 +58,10 @@ def pre_train(model, args, df):
     plot_loss_acc(train_losses, valid_losses, 'Loss', args['folder'])
     plot_loss_acc(train_acc, valid_accs, 'Acc', args['folder'])
 
-def check_ptmodel(model, args, df, downsample):
+def check_ptmodel(model, args, df, downsample, map):
     train_loader, valid_loader, test_data, weight = process_data_bert(df=df, splits=args['splits'], 
-                                                                 bs=args['batch_size'], max_seq=args['input_size'], downsample=downsample)
+                                                                 bs=args['batch_size'], max_seq=args['input_size'], 
+                                                                 downsample=downsample, map=map)
     agent = SpamDetector(model=model, train_dataloader=train_loader, device=device, lr=args['lr'], 
                                         batch_size=args['batch_size'], valid_dataloader=valid_loader, epochs=args['epochs'], 
                                         test_data=test_data, weights=weight, folder=args['folder'], weight_path=args['name'])
@@ -68,12 +71,13 @@ def check_ptmodel(model, args, df, downsample):
 if __name__ == '__main__':
     device = torch.device("cpu")
     # define variables 
-    filename, st_args, te_args, args = args_and_init(True, True)
+    filename, st_args, te_args, args = args_and_init(True, True, "StudentTeacher/config.yaml")
     other_df = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/StudentTeacher/data/df8.csv')
     df = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/StudentTeacher/data/df_full.csv')
     df2 = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/StudentTeacher/data/df2.csv')
     train_loader, valid_loader, test_data, weight = process_data_bert(df=df, splits=args['splits'], 
-                                                                 bs=args['batch_size'], max_seq=args['input_size'], downsample=args['downsample'])
+                                                                 bs=args['batch_size'], max_seq=args['input_size'], 
+                                                                 downsample=args['downsample'])
     
     student = LSTMModel(30522, st_args['embed_size'], st_args['hidden_size'], st_args['dropout']).to(device)
     teacher = LSTMModel(30522, te_args['embed_size'], te_args['hidden_size'], te_args['dropout']).to(device)

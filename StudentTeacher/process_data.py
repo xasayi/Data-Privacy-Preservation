@@ -18,14 +18,18 @@ def read_data(filename):
     df = pd.DataFrame(lines, columns=['type', 'data']).drop_duplicates()
     return df
 
-def get_data(df, downsample):
+def get_data(df, downsample, map_):
     if downsample:
-        ham = df[df['type']=='ham']
-        spam = df[df['type']=='spam']
-        ham = ham.sample(n = len(spam), random_state = 44)
-        df = pd.concat([ham, spam]).reset_index(drop=True)
+        maps = []
+        for i in map_:
+            maps.append(df[df['type']==i])
+        min_len = min([len(maps[j]) for j in range(len(maps))])
+        
+        for i in range(len(maps)):
+            maps[i] = maps[i].sample(n=min_len, random_state = 44)
+        df = pd.concat(maps).reset_index(drop=True)
     ret = df.reindex(np.random.permutation(df.index))
-    ret['label']= ret['type'].map({'ham': 0, 'spam': 1})
+    ret['label']= ret['type'].map(map_)
     return ret
 
 def tokenize(tokenizer, data, max_len, padding_type, trunc_type, bs, type, sampler):
@@ -55,7 +59,7 @@ def tokenize_bert(tokenizer, data, max_len, bs, type, sampler):
         return dataloader, weight
     return (data_seq, data[1])
 
-def process_data(df, splits, bs, max_seq, downsample, sampler=SequentialSampler, vocab_size=1000):
+def process_data(df, splits, bs, max_seq, downsample, sampler=RandomSampler, vocab_size=1000):
     dic1 = get_data(df, downsample)
     
     tokenizer = Tokenizer(num_words = vocab_size, char_level=False, oov_token = "<OOV>")
@@ -68,16 +72,16 @@ def process_data(df, splits, bs, max_seq, downsample, sampler=SequentialSampler,
 
     return train_dataloader, valid_dataloader, test_data, train_weight
 
-def process_data_bert(df, splits, bs, max_seq, downsample, sampler=SequentialSampler):
-    dic1 = get_data(df, downsample)
+def process_data_bert(df, splits, bs, max_seq, downsample, map, sampler=RandomSampler):
+    dic1 = get_data(df, downsample, map)
     dic1 = {i: dic1[i].tolist() for i in list(dic1)}
-    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+    tokenizer = BertTokenizerFast.from_pretrained('bert-large-uncased')
     if not max_seq:
         seq_len = [len(i.split()) for i in train[0]]
         max_seq = min(int(np.ceil((pd.Series(seq_len).describe()['75%']) / 5) * 5), 100)
     print(f'Max sequence length is: {max_seq}')
-    
     train, valid, test = split_data(dic1, splits)
+
     train_dataloader, train_weight = tokenize_bert(tokenizer, train, max_seq, bs, 'train', sampler)
     valid_dataloader = tokenize_bert(tokenizer, valid, max_seq, bs, 'valid', sampler)[0]
     test_data = tokenize_bert(tokenizer, test, max_seq, bs, 'test', sampler)
