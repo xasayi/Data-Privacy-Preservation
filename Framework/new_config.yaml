@@ -1,0 +1,63 @@
+filename_pretrain: '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain.csv'
+filename_train: '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_remaining.csv'
+student_bool: True
+teacher_bool: True
+teacher_student_bool: True
+transformer: False
+active: True
+pt: False
+
+StudentPT:
+    folder: 'Framework/results/Emotions_PT_S_5_new'
+    name: 'student.pt'
+    dropout: 0.1
+    lr: 0.0005
+    batch_size: 32
+    downsample: False
+    epochs: 5
+    hidden: [50, 128, 64, 32, 16, 32]
+
+    input_embeding_size: 40
+    hidden_size: 10
+    
+    
+TeacherPT:
+    folder: 'Framework/results/Emotion_PT_T_new'
+    name: 'teacher.pt'
+    dropout: 0.1
+    lr: 0.0005
+    batch_size: 128
+    epochs: 15
+    downsample: False
+    #hidden: [50, 64, 32, 32]
+    hidden: [50, 128, 64, 32, 16, 32]
+    model: 'bert-base-uncased'
+
+    input_embeding_size: 40
+    hidden_size: 10
+    embed_size: 20
+    
+StudentTeacher:
+    folder: 'Framework/results/emotion_2_active_2'
+    name: 'student_teacher.pt'
+    factor: 1
+    dropout: 0.1
+    lr: 0.0005
+    wd: 0.0001
+    eps: 0
+    sens_ratio: 0.85
+
+    queries: 1000
+    epochs: 8
+    iters: 30
+    dp: False
+
+    model: 'bert-base-uncased'
+    batch_size: 32
+    input_size: 50
+    hidden: [50, 128, 64, 32, 16, 32]
+    downsample: False
+    similarity: null
+    input_embeding_size: 40
+    hidden_size: 10
+    embed_size: 20

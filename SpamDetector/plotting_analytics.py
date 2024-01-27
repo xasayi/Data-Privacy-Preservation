@@ -9,7 +9,7 @@ def plot_loss_acc(train, valid, type, folder):
     plt.figure()
     plt.plot(train, label = f'Train {type}')
     plt.plot(valid, label = f'Valid {type}')
-    plt.xlabel('Steps')
+    plt.xlabel('# of Queries')
     plt.ylabel(type)
     plt.legend()
     os.makedirs(folder, exist_ok=True)
