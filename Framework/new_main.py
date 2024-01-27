@@ -105,9 +105,7 @@ def plot(train, folder, type):
     os.makedirs(folder, exist_ok=True)
     plt.savefig(f'{folder}/{type}.png')
 
-def plot_stuff(filenames, labels, name):
-    data_filename, st_args, te_args, config = args_and_init(config_file="Framework/new_config.yaml")
-    
+def plot_stuff(config, filenames, labels, name):
     args = config['StudentTeacher']
     datas = []
     for i in filenames:
@@ -116,20 +114,19 @@ def plot_stuff(filenames, labels, name):
         file.close()
         
     #train_loss = {f'Training {labels[i]}':np.mean(np.array(datas[i]['train_losses']).reshape(-1, 1), axis=1) for i in range(len(labels))}
-    train_loss = {f'Student {labels[i]}':datas[i]['valid_losses'][args['epochs']::args['epochs']] for i in range(len(labels))}
+    train_loss = {f'Student {labels[i]}':datas[i]['train_losses'][args['epochs']::args['epochs']] for i in range(len(labels))}
     #valid_loss = {labels[i]:datas[i]['valid_losses'][::args['epochs']] for i in len(labels)}
    
     #student_train_acc = {f'Training {labels[i]}':np.mean(np.array(datas[i]['student_train_accs']).reshape(-1, 1), axis=1) for i in range(len(labels))}
-    student_train_acc = {f'Student {labels[i]}':datas[i]['student_valid_accs'][args['epochs']::args['epochs']] for i in range(len(labels))}
+    student_train_acc = {f'Student {labels[i]}':datas[i]['student_train_accs'][args['epochs']::args['epochs']] for i in range(len(labels))}
     for i in range(len(labels)):
-        student_train_acc[f'Teacher {labels[i]}'] = [datas[i]['teacher_train_accs']]*len(datas[i]['student_valid_accs'][args['epochs']::args['epochs']])
+        student_train_acc[f'Teacher {labels[i]}'] = [datas[i]['teacher_train_accs']]*len(datas[i]['student_train_accs'][args['epochs']::args['epochs']])
         #student_train_acc[f'Validation {labels[i]}'] = np.mean(np.array(datas[i]['student_valid_accs']).reshape(-1, 10), axis=1)
         #train_loss[f'Validation {labels[i]}'] = np.mean(np.array(datas[i]['valid_losses']).reshape(-1, 10), axis=1)
-    plot(train_loss, "/Users/sarinaxi/Desktop/Thesis/Framework/results/", f'{name} Student Validation Loss Curve')
-    plot(student_train_acc, "/Users/sarinaxi/Desktop/Thesis/Framework/results/", f'{name} Student Validation Accuracy Curve')
+    plot(train_loss, "/Users/sarinaxi/Desktop/Thesis/Framework/results/", f'{name} Student Training Loss Curve')
+    plot(student_train_acc, "/Users/sarinaxi/Desktop/Thesis/Framework/results/", f'{name} Student Training Accuracy Curve')
 
 def save_parameters(args, folder):
-    
     with open(f'{folder}/parameters.txt', 'w') as f:
         f.write(f'factor: {args["factor"]}\n')
         f.write(f'dropout: {args["dropout"]}\n')
@@ -147,58 +144,8 @@ def save_parameters(args, folder):
         f.write(f'hidden: {args["hidden"]}\n')
         f.write(f'downsample: {args["downsample"]}\n')
         f.write(f'similarity: {args["similarity"]}\n\n')
-
-def run_stuff(dp, active_, folder, args, teacher, student, device, map, 
-              train_dataloader, valid_dataloader, test_data, train_weight, 
-              transformer=False):
-    args['dp'] = dp
-    active = active_
-    args['folder'] = folder
-    if not os.path.exists(args['folder']):
-        os.makedirs(args['folder'])
-    
-    agent = StudentTeacher(teacher, student, args, device, map, args['similarity'], 
-                            transformer, active, train_dataloader, valid_dataloader, test_data, train_weight)
-    train_losses, student_train_accs, valid_losses, student_valid_accs, teacher_train_accs, teacher_valid_accs, acc, train_label, valid_label = agent.run()
-    dic = {'train_losses': train_losses, 
-            'student_train_accs': student_train_accs, 
-            'valid_losses': valid_losses, 
-            'student_valid_accs': student_valid_accs, 
-            'teacher_train_accs': acc, 
-            'teacher_valid_accs': teacher_valid_accs,
-            'train_label': train_label, 
-            'valid_label': valid_label}
-
-    f = open(f"{args['folder']}/train_data.pkl","wb")
-    pickle.dump(dic,f)
-    f.close()
-    plot_loss_acc(train_losses[::args['epochs']], valid_losses[::args['epochs']], 'Loss', args['folder'])
-    plot_loss_acc(student_train_accs[::args['epochs']], student_valid_accs[::args['epochs']], 'Student Acc', args['folder'])
-    plot_loss_acc(teacher_train_accs[::args['epochs']], teacher_valid_accs[::args['epochs']], 'Teacher Acc', args['folder'])
-    plot_loss_acc(train_losses, valid_losses, 'Loss_all', args['folder'])
-    plot_loss_acc(student_train_accs, student_valid_accs, 'Student Acc_all', args['folder'])
-    plot_loss_acc(teacher_train_accs, teacher_valid_accs, 'Teacher Acc_all', args['folder'])
-    plot_loss_acc(train_label, valid_label, 'Label Correctness', args['folder'])
-    save_parameters(args, args['folder'])
         
 if __name__ == '__main__':
-    '''
-    for i in ['d']:
-        plot_stuff([f'SENTMENT_test_0.1_{i}_allclasses_diffarch', 
-                    f'SENTMENT_test_1_{i}_allclasses_diffarch', f'SENTMENT_test_10_{i}_allclasses_diffarch', 
-                f'SENTMENT_test_100_{i}_allclasses_diffarch', f'SENTMENT_test_1000_{i}_allclasses_diffarch',
-                f'SENTMENT_test_0_allclasses_diffarch', f'SENTMENT_test_active_allclasses_diffarch'], [0.1, 1, 10, 100, 1000, r'$\infty$', 'active'], f'sens_active_allclasses')
-    
-    
-    '''
-    k = []
-    labs = ['dp_0.1', 'dp_1', 'dp_10', 'dp_100', 'dp_1000','dp_10000', 'dp_inf']
-    #labs = ['active_unbalanced_1', 'active_unbalanced_2', 'active_unbalanced_3', 'active_balanced_1', 'active_balanced_2', 'active_balanced_3']
-    for i in labs:
-        k.append(f'emotion_2_{i}')
-    plot_stuff(k, labs, f'Emotions_Comparison')
-    
-    #def k():
     data_filename, st_args, te_args, config = args_and_init(config_file="Framework/new_config.yaml")
     
     args = config['StudentTeacher']
@@ -206,16 +153,23 @@ if __name__ == '__main__':
     student_bool = config['student_bool']
     teacher_bool = config['teacher_bool']
     teacher_student_bool = config['teacher_student_bool']
-    teacher_student_bool2 = False
-
+    
     transformer = config['transformer']
     active = config['active']
+    plot_ = config['plot_graphs']
+    normal = config['public_noise']
+    half = config['half']
     #map = {'sadness': 0, 'joy': 1, 'surprise': 2, 'anger': 3, 'fear': 4, 'love': 5}
     map = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
-    half = False
-    normal = True
     #map = {'ham': 0, 'spam':1}
-    if teacher_student_bool:
+    if plot_: ## NEED TO CHANGE VARIABLES THIS PART FOR PLOTTING
+        k = []
+        labs = ['dp_0.1', 'dp_1', 'dp_10', 'dp_100', 'dp_1000','dp_10000', 'dp_inf']
+        #labs = ['active_unbalanced_1', 'active_unbalanced_2', 'active_unbalanced_3', 'active_balanced_1', 'active_balanced_2', 'active_balanced_3']
+        for i in labs:
+            k.append(f'emotion_2_{i}')
+        plot_stuff(config, k, labs, f'Emotions_Comparison_Train')
+    elif teacher_student_bool:
         tokenizer = BertTokenizer.from_pretrained(te_args['model'])
         train = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_unseen_pub44554.csv')
         sensitive = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_sensitive33003.csv')
@@ -239,8 +193,8 @@ if __name__ == '__main__':
             train_data = train_data.sample(frac=1).reset_index(drop=True)
             train  = (train_data['data'], train_data['label'])
         else:
-            spam = pd.concat((spam, spam))
-            spam = spam.samoke(n = 10657)
+            spam = pd.concat((spam, spam, spam))
+            spam = spam.sample(n = 10657)
             new_train = new_train.sample(n=10657)
             train_data = pd.concat((spam, new_train))
             train_data = train_data.sample(frac=1).reset_index(drop=True)
@@ -285,100 +239,7 @@ if __name__ == '__main__':
         plot_loss_acc(teacher_train_accs, teacher_valid_accs, 'Teacher Acc_all', args['folder'])
         plot_loss_acc(train_label, valid_label, 'Label Correctness', args['folder'])
         save_parameters(args, args['folder'])
-        
-    elif teacher_student_bool2:
-        
-        #-------------------------Load Models--------------------
-        train_dataloader, valid_dataloader, test_data, train_weight = process_data(filename=data_filename, 
-                                                                               map=map, pre_train=True, 
-                                                                               sequence_len=st_args['hidden'][0], 
-                                                                               batch_size=st_args['batch_size'], 
-                                                                               sampler=RandomSampler, 
-                                                                               bert_model='bert-base-uncased',
-                                                                               downsample=True,
-                                                                               att=transformer)
-    
-        
-        student = LSTMModelMulti2(len(map), 30522, st_args['hidden'], st_args['dropout']).to(device)
-        #check_ptmodel(model=student, args=st_args, train_loader=train_dataloader, valid_loader=valid_dataloader, 
-        #              test_data=test_data, train_weight=train_weight, attention=transformer, active=active)
-        teacher = LSTMModelMulti2(len(map), 30522, te_args['hidden'], te_args['dropout']).to(device)
-        check_ptmodel(model=teacher, args=te_args, train_loader=train_dataloader, valid_loader=valid_dataloader, 
-                      test_data=test_data, train_weight=train_weight, attention=transformer, active=active)
-        
 
-        #---------------------START FINETUNING--------------------
-        tokenizer = BertTokenizer.from_pretrained(te_args['model'])
-        # ----------------Get Public Balanced-----------------
-        file = open(f"/Users/sarinaxi/Desktop/Thesis/Framework/results/data/test16502.pkl", 'rb')
-        test = pickle.load(file)
-        file.close()
-        file = open(f"/Users/sarinaxi/Desktop/Thesis/Framework/results/data/valid16501.pkl", 'rb')
-        valid = pickle.load(file)
-        file.close()
-        
-        public_data = pd.concat((test[0], valid[0]), ignore_index=True)
-        public_labels = pd.concat((test[1], valid[1]), ignore_index=True)
-        public = (public_data, public_labels)
-        '''
-        #downsampling
-        maps = []
-        for i in map:
-            maps.append(len(public_labels[public_labels==i]))
-        min_len = min(maps)
-        
-        for i in range(len(maps)):
-            maps[i] = public_labels[public_labels==i].sample(n=min_len)
-        inds = list(pd.concat(maps).index)
-        np.random.shuffle(inds)
-        balanced_public = (public_data.iloc[inds].reset_index(drop=True), public_labels.iloc[inds].reset_index(drop=True))
-        print(f'We have a balanced Public Dataset of {len(balanced_public[0])} points')
-        '''
-        #print(f'We have a Public Dataset of {len(public[0])} points')
-        train_dataloader, train_weight = tokenize(tokenizer, public, args['hidden'][0], args['batch_size'], 'train', RandomSampler, transformer, pt)
-        
-        # ------------------Get Private-------------------
-        f = open(f"/Users/sarinaxi/Desktop/Thesis/Framework/results/data/sensitive_set.pkl", 'rb')
-        sensitive = pickle.load(f)
-        f.close()
-        sensitive = sensitive.reset_index(drop=True)
-        local = sensitive[sensitive['label'].isin([0, 1, 2])]
-        print(f'We have a Partial Private Dataset of {len(local)} points')
-        
-        val_data, test_data, val_labels, test_labels = train_test_split(local['data'], local['label'],
-                                                                        test_size=0.8,
-                                                                        stratify=local['label'])
-        valid = (val_data.reset_index(drop=True), val_labels.reset_index(drop=True))
-        test = (test_data.reset_index(drop=True), test_labels.reset_index(drop=True))
-
-        valid_dataloader, no_weight = tokenize(tokenizer, valid, args['hidden'][0], args['batch_size'], 'valid', RandomSampler, transformer, pt)
-        test_data, no_w = tokenize(tokenizer, test, args['hidden'][0], args['batch_size'], 'test', RandomSampler, transformer, pt)
-        
-        #-------------------------Student Teacher Finetuning------------------------
-        agent = StudentTeacher(teacher, student, args, device, map, args['similarity'], 
-                            transformer, active, train_dataloader, valid_dataloader, test_data, train_weight)
-        train_losses, student_train_accs, valid_losses, student_valid_accs, teacher_train_accs, teacher_valid_accs, acc, train_label, valid_label = agent.run()
-        dic = {'train_losses': train_losses, 
-            'student_train_accs': student_train_accs, 
-            'valid_losses': valid_losses, 
-            'student_valid_accs': student_valid_accs, 
-            'teacher_train_accs': acc, 
-            'teacher_valid_accs': teacher_valid_accs,
-            'train_label': train_label, 
-            'valid_label': valid_label}
-
-        f = open(f"{args['folder']}/train_data.pkl","wb")
-        pickle.dump(dic,f)
-        f.close()
-        plot_loss_acc(train_losses[::args['epochs']], valid_losses[::args['epochs']], 'Loss', args['folder'])
-        plot_loss_acc(student_train_accs[::args['epochs']], student_valid_accs[::args['epochs']], 'Student Acc', args['folder'])
-        plot_loss_acc(teacher_train_accs[::args['epochs']], teacher_valid_accs[::args['epochs']], 'Teacher Acc', args['folder'])
-        plot_loss_acc(train_losses, valid_losses, 'Loss_all', args['folder'])
-        plot_loss_acc(student_train_accs, student_valid_accs, 'Student Acc_all', args['folder'])
-        plot_loss_acc(teacher_train_accs, teacher_valid_accs, 'Teacher Acc_all', args['folder'])
-        plot_loss_acc(train_label, valid_label, 'Label Correctness', args['folder'])
-        save_parameters(args, args['folder'])
-        
     elif student_bool:
         
         data_filename = '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain70831.csv'

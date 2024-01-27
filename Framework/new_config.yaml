@@ -6,6 +6,9 @@ teacher_student_bool: True
 transformer: False
 active: True
 pt: False
+plot_graphs: False
+public_noise: False
+half: False
 
 StudentPT:
     folder: 'Framework/results/Emotions_PT_S_5_new'
@@ -38,14 +41,14 @@ TeacherPT:
     embed_size: 20
     
 StudentTeacher:
-    folder: 'Framework/results/emotion_2_active_2'
+    folder: 'Framework/results/emotion_2_active_addspam_half'
     name: 'student_teacher.pt'
-    factor: 1
+    factor: 1 # amount of public data to sample from compared to private data 
     dropout: 0.1
     lr: 0.0005
-    wd: 0.0001
-    eps: 0
-    sens_ratio: 0.85
+    wd: 0.0001 # weight decay 
+    eps: 0 
+    sens_ratio: 0.85 # amount of vocabulary that is defined as sensitive 
 
     queries: 1000
     epochs: 8
@@ -57,7 +60,8 @@ StudentTeacher:
     input_size: 50
     hidden: [50, 128, 64, 32, 16, 32]
     downsample: False
-    similarity: null
+    similarity: null # always null 
+    
     input_embeding_size: 40
     hidden_size: 10
     embed_size: 20
