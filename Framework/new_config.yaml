@@ -11,13 +11,14 @@ public_noise: False
 half: False
 
 StudentPT:
-    folder: 'Framework/results/Emotions_PT_S_5_new'
+# ran 5, need to run 3 & 8 
+    folder: 'Framework/results/Emotions_PT_S_70831_3_1layer_all'
     name: 'student.pt'
     dropout: 0.1
     lr: 0.0005
-    batch_size: 32
+    batch_size: 128
     downsample: False
-    epochs: 5
+    epochs: 3
     hidden: [50, 128, 64, 32, 16, 32]
 
     input_embeding_size: 40
@@ -25,14 +26,13 @@ StudentPT:
     
     
 TeacherPT:
-    folder: 'Framework/results/Emotion_PT_T_new'
+    folder: 'Framework/results/Emotion_PT_T'
     name: 'teacher.pt'
     dropout: 0.1
     lr: 0.0005
     batch_size: 128
-    epochs: 15
+    epochs: 20
     downsample: False
-    #hidden: [50, 64, 32, 32]
     hidden: [50, 128, 64, 32, 16, 32]
     model: 'bert-base-uncased'
 
@@ -41,27 +41,29 @@ TeacherPT:
     embed_size: 20
     
 StudentTeacher:
-    folder: 'Framework/results/emotion_2_active_addspam_half'
+    folder: 'Framework/results/20240326_ST_pub'
+    pre_train_file: '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain70831.csv'
     name: 'student_teacher.pt'
     factor: 1 # amount of public data to sample from compared to private data 
     dropout: 0.1
     lr: 0.0005
-    wd: 0.0001 # weight decay 
-    eps: 0 
+    wd: 0.0001 # weight decay s
+    eps: 0
     sens_ratio: 0.85 # amount of vocabulary that is defined as sensitive 
 
-    queries: 1000
+    queries: 2000
     epochs: 8
-    iters: 30
+    iters: 10
     dp: False
+    public: True
 
     model: 'bert-base-uncased'
-    batch_size: 32
+    batch_size: 128
     input_size: 50
     hidden: [50, 128, 64, 32, 16, 32]
     downsample: False
     similarity: null # always null 
-    
+
     input_embeding_size: 40
     hidden_size: 10
     embed_size: 20

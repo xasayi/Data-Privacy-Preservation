@@ -1,53 +1,46 @@
-import numpy as np
+'''
+Classifier class 
+'''
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.optim import AdamW
+from torch.utils.data import Subset
+
 import pandas as pd
+import numpy as np
 from sklearn.metrics import classification_report
-from torch.utils.data import DataLoader, Subset
 from scipy.stats import entropy
 
 class Classifier(nn.Module):
-    def __init__(
-            self, 
-            model, 
-            train_dataloader, 
-            device, 
-            lr, 
-            batch_size, 
-            valid_dataloader, 
-            epochs, 
-            test_data, 
-            weights, 
-            folder, 
-            weight_path,
-            attention,
-            active,
-            weight_decay=0.0005,
-            ):
+    '''
+    Classifier 
+    '''
+    def __init__(self, model,train_dataloader, device, lr, batch_size, valid_dataloader,
+                 epochs, test_data, weights, folder, weight_path, attention, active,
+                 weight_decay=0.0005):
         super(Classifier, self).__init__()
-        
+
         self.model = model
         self.optimizer = AdamW(self.model.parameters(), lr = lr, weight_decay=weight_decay)
-        self.train_dataloader, self.valid_dataloader, self.test_data, weights = train_dataloader, valid_dataloader, test_data, weights
-        self.loss  = nn.NLLLoss(weights) 
-        
+        self.train_dataloader = train_dataloader
+        self.valid_dataloader = valid_dataloader
+        self.test_data = test_data
+        self.loss = nn.NLLLoss(weights)
+
         self.att = attention
         self.active = active
         self.epochs = epochs
         self.batch_size = batch_size
 
-        self.weight_path = weight_path 
+        self.weight_path = weight_path
         self.folder = folder
         self.device = device
         if self.active:
-            self.inds = [np.linspace(0, len(batch[0])-1, len(batch[0])) for batch in self.train_dataloader]
+            self.inds = None #[np.linspace(0, len(i[0])-1, len(i[0])) for i in self.train_dataloader]
         else:
             self.inds = None
-    
+
     def get_loss(self, sent_id, labels, train=True):
-        noise = np.ones(sent_id.shape) + np.random.rand(sent_id.shape[0], sent_id.shape[1])*0.01
-        
         preds = self.model(sent_id)[-1]
         loss = self.loss(preds, labels)
         total_loss = loss.item()
@@ -56,11 +49,8 @@ class Classifier(nn.Module):
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             self.optimizer.step()
         return total_loss, preds
-    
+
     def get_loss_mask(self, sent_id, labels, mask, train=True):
-        noise = np.ones(sent_id.shape) + np.random.rand(sent_id.shape[0], sent_id.shape[1])*0.01
-        #new = np.clip(np.multiply(noise, sent_id).long(), a_min=0, a_max=30521)
-        
         preds = self.model(sent_id, mask)
         loss = self.loss(preds, labels)
         total_loss = loss.item()
@@ -72,7 +62,7 @@ class Classifier(nn.Module):
 
     def get_acc(self, preds, labels):
         preds = preds.argmax(dim=1)
-        accuracy = np.sum([1 if preds[i] == labels[i] else 0 for i in range(len(labels))]) / len(labels)
+        accuracy = np.sum([1 if preds[i]==labels[i] else 0 for i in range(len(labels))])/len(labels)
         return accuracy
 
     def train(self):
@@ -81,7 +71,7 @@ class Classifier(nn.Module):
         for step, batch in enumerate(self.train_dataloader):
 
             batch = [r.to(self.device) for r in batch]
-            if self.att: 
+            if self.att:
                 sent_id, mask, labels = batch
                 self.model.zero_grad()
                 loss, preds = self.get_loss_mask(sent_id, labels, mask)
@@ -101,8 +91,8 @@ class Classifier(nn.Module):
         avg_acc = total_accuracy / len(self.train_dataloader)
         return avg_loss, avg_acc
 
-    def sample_entropy(self, input):
-        probabilities = np.exp(input.detach().cpu().numpy())
+    def sample_entropy(self, input_):
+        probabilities = np.exp(input_.detach().cpu().numpy())
         entropies = entropy(probabilities.T)
         order = np.argsort(entropies)[::-1]
         return order
@@ -145,7 +135,7 @@ class Classifier(nn.Module):
             track_acc.append(accuracy)
             inds.append(ind)
         self.inds = inds
-        
+
         indices = np.argsort(track_acc) # from low to high accuracy
         self.train_dataloader = Subset([i for i in self.train_dataloader], indices=indices)
         avg_loss = total_loss / len(self.train_dataloader)
@@ -180,7 +170,6 @@ class Classifier(nn.Module):
         return avg_loss, avg_acc
 
     def run(self):
-        
         best_valid_loss = float('inf')
         train_losses, valid_losses = [], []
         train_accs, valid_accs = [], []
@@ -193,7 +182,7 @@ class Classifier(nn.Module):
                 print(f'active: {self.active}')
                 train_loss, train_acc = self.train_active()
             valid_loss, valid_acc = self.eval()
-            
+
             if valid_loss < best_valid_loss:
                 best_valid_loss = valid_loss
                 torch.save(self.model.state_dict(), f'{self.folder}/{self.weight_path}')
@@ -216,17 +205,17 @@ def model_performance(args, model, test_seq, test_y, device, folder, mask=None):
         else:
             preds = model(torch.tensor(test_seq).to(device))[-1]
     preds = preds.argmax(dim=1).detach().cpu().numpy()
-    with open(f'{folder}/results.txt', 'w') as f:
+    with open(f'{folder}/results.txt', 'w') as file:
         report = classification_report(test_y, preds)
         confusion_matrix = pd.crosstab(test_y, preds)
-        f.write(report)
-        f.write(str(confusion_matrix))
-        f.write(f'\ndropout: {args["dropout"]}\n')
-        f.write(f'lr: {args["lr"]}\n')
-        f.write(f'batch_size: {args["batch_size"]}\n')
-        f.write(f'epochs: {args["epochs"]}\n\n')
-        f.write(f'downsample: {args["downsample"]}\n')
-        f.write(f'hidden sizes: {args["hidden"]}\n')
+        file.write(report)
+        file.write(str(confusion_matrix))
+        file.write(f'\ndropout: {args["dropout"]}\n')
+        file.write(f'lr: {args["lr"]}\n')
+        file.write(f'batch_size: {args["batch_size"]}\n')
+        file.write(f'epochs: {args["epochs"]}\n\n')
+        file.write(f'downsample: {args["downsample"]}\n')
+        file.write(f'hidden sizes: {args["hidden"]}\n')
         print(report)
         print(str(confusion_matrix))
     return np.sum([1 if test_y[i]==preds[i] else 0 for i in range(len(preds))])/len(preds)

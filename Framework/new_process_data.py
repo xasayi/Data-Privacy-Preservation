@@ -1,5 +1,6 @@
 import json
 import torch
+import pickle
 import random
 import numpy as np
 import pandas as pd
@@ -113,6 +114,7 @@ def sanitize_data(tokenizer, dataloader, sens_ratio, eps):
     voc = dict(tokenizer.vocab)
     voc = {v: k for k, v in voc.items()}
 
+    print(dataloader[0])
     tok, label = dataloader
     flattened = tok.reshape(tok.shape[0]*tok.shape[1])
     
@@ -136,7 +138,13 @@ def sanitize_data(tokenizer, dataloader, sens_ratio, eps):
     #print([voc[tok] for tok in insensitive_toks[:20]])
     tot_prob = 0
     count = 0
+    flag = False
     for i in range(len(tok)):
+        sentence = [voc[tok[i][k].tolist()]for k in range(len(tok[i]))]
+        if 'adam' in sentence:
+            print('Original')
+            print([voc[tok[i][k].tolist()]for k in range(len(tok[i]))])
+            flag = True
         for j in range(len(tok[i])):
             sens_tok = tok[i][j].tolist()
             if sens_tok in sensitive_toks:
@@ -148,12 +156,16 @@ def sanitize_data(tokenizer, dataloader, sens_ratio, eps):
                 else:
                     prob = 0
                 tot_prob += prob
-                #print(voc[sens_tok], voc[insens_tok], prob*2500)
                 p = random.random()
                 if p < prob*2500:
-                    print(f'\t{voc[sens_tok]} replaced by {voc[insens_tok]} {prob*2500}')
+                    if flag == True:
+                        print(f'\t{voc[sens_tok]} replaced by {voc[insens_tok]} {prob*2500}')
                     count += 1
                     tok[i][j] = insens_tok
+        if flag == True:
+            print('Swapped')
+            print([voc[tok[i][k].tolist()]for k in range(len(tok[i]))])
+            flag = False
     return tot_prob, count/len(tok)/len(tok[0]), (tok, label)
 
 def process_data(filename, map, pre_train, sequence_len, batch_size, sampler, bert_model, downsample, att, data=None):
@@ -181,24 +193,39 @@ def process_data(filename, map, pre_train, sequence_len, batch_size, sampler, be
     return train_dataloader, valid_dataloader, test_data, train_weight
 
 if __name__ == '__main__':
+
     
     #filename = '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/data.jsonl'   
     #jsonObj = pd.read_json(path_or_buf=filename, lines=True)
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    sensitive = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private69092.csv')
+    local = sensitive[sensitive['label'].isin([0, 1, 2])]
+    val_data, test_data, val_labels, test_labels = train_test_split(local['data'], local['label'],
+                                                                        test_size=0.95,
+                                                                        stratify=local['label'])
+    test = (test_data.reset_index(drop=True), test_labels.reset_index(drop=True))
+    test, no_w = tokenize(tokenizer, test, 50, 32, 'test', RandomSampler, False, False)
+    tot_prob, replace_perc, test_data = sanitize_data(tokenizer, test, 0.85, 1000)
+    print(f'Total Probability is {tot_prob}')
+    print(f'Replaced percentage is {replace_perc}')
     
-    file = '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface.csv'
-    data = pd.read_csv(file)
-    
-    data = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface.csv')
-    train, test = train_test_split(data,test_size=0.17,stratify=data['type'])
-    print(len(train), len(test))
-    train = train[['data', 'type']].drop_duplicates().reset_index(drop=True)
-    test = test[['data', 'type']].drop_duplicates().reset_index(drop=True)
-    train.to_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_remaining.csv')
-    test.to_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain.csv')
-
-    
-
     '''
+    data = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_remaining345456.csv')
+    public, private = train_test_split(data, test_size=0.2,stratify=data['type'])
+    print(len(public), len(private))
+    public = public.drop_duplicates().reset_index(drop=True)
+    seen, unseen = train_test_split(public, test_size=0.25,stratify=public['type'])
+    private = private.drop_duplicates().reset_index(drop=True)
+    seen = seen.drop_duplicates().reset_index(drop=True)
+    unseen = unseen.drop_duplicates().reset_index(drop=True)
+    seen.to_csv(f'/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_seen{len(seen)}.csv')
+    unseen.to_csv(f'/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_unseen{len(unseen)}.csv')
+    private.to_csv(f'/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private{len(private)}.csv')
+
+
+    
+    def k():
+    
     map = {'sadness': 0, 'joy': 1, 'surprise': 2, 'anger': 3, 'fear': 4, 'love': 5}
     #map = {'ham': 0, 'spam':1}
     df = get_data(filename, map, False)
