@@ -114,7 +114,7 @@ def sanitize_data(tokenizer, dataloader, sens_ratio, eps):
     voc = dict(tokenizer.vocab)
     voc = {v: k for k, v in voc.items()}
 
-    print(dataloader[0])
+    #print(dataloader[0])
     tok, label = dataloader
     flattened = tok.reshape(tok.shape[0]*tok.shape[1])
     
@@ -141,10 +141,6 @@ def sanitize_data(tokenizer, dataloader, sens_ratio, eps):
     flag = False
     for i in range(len(tok)):
         sentence = [voc[tok[i][k].tolist()]for k in range(len(tok[i]))]
-        if 'adam' in sentence:
-            print('Original')
-            print([voc[tok[i][k].tolist()]for k in range(len(tok[i]))])
-            flag = True
         for j in range(len(tok[i])):
             sens_tok = tok[i][j].tolist()
             if sens_tok in sensitive_toks:
@@ -158,14 +154,10 @@ def sanitize_data(tokenizer, dataloader, sens_ratio, eps):
                 tot_prob += prob
                 p = random.random()
                 if p < prob*2500:
-                    if flag == True:
-                        print(f'\t{voc[sens_tok]} replaced by {voc[insens_tok]} {prob*2500}')
+                    #print(f'\t{voc[sens_tok]} replaced by {voc[insens_tok]} {prob*2500}')
                     count += 1
                     tok[i][j] = insens_tok
-        if flag == True:
-            print('Swapped')
-            print([voc[tok[i][k].tolist()]for k in range(len(tok[i]))])
-            flag = False
+        
     return tot_prob, count/len(tok)/len(tok[0]), (tok, label)
 
 def process_data(filename, map, pre_train, sequence_len, batch_size, sampler, bert_model, downsample, att, data=None):

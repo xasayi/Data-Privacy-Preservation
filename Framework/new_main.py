@@ -93,8 +93,8 @@ def check_ptmodel(model, args, train_loader, valid_loader, test_data, train_weig
 
 def plot(train, folder, type):
     plt.figure(figsize=(10, 7))
-    color = ['r', 'b', 'g', 'm', 'c']#, 'y', 'cyan', 'pink']#, 'brown', 'teal']
-    format = ['-', '-', '-', '-', '-', '--','--','--','--', '--']
+    color = ['r', 'b']#, 'g']#, 'm', 'c']#, 'y', 'cyan', 'pink']#, 'brown', 'teal']
+    format = ['-', '-', '--', '--']
     colors = color[:len(train)]+color[:len(train)]
     for ind, (i, j) in enumerate(train.items()):
         print(format[ind], f'{i}', colors[ind])
@@ -130,6 +130,7 @@ def plot_stuff(config, filenames, labels, name):
     for i in range(len(labels)):
         #print(i)
         #print(len(datas[i]['student_valid_accs']))
+        #print(datas[i]['student_valid_accs'])
         student_train_acc[f'Student {labels[i]}'] = np.array([0.49] + list(np.array(datas[i]['student_valid_accs'])[indices]))*100
         accs.append(np.array(datas[i]['student_valid_accs'])[-1])
     #print(accs)
@@ -205,7 +206,9 @@ if __name__ == '__main__':
         lab = ['dp0.1', 'dp1', 'dp10', 'dp100', 'dp250', 'dp500', 'dpinf']#, 'pub']
         lab = ['dp0.1', 'dp1', 'dp100', 'dp1000']#, 'pub']
         lab = ['20240326_ST_dp100','20240326_ST_dp100_private75', '20240326_ST_dp100_half_half',  '20240326_ST_dp100_private25', '20240326_ST_pub']
-        j = ['0%', '25%', '50%', '75%', '100%']#, 'pub']
+        
+        lab = ['20240326_ST_dp100','20240326_ST_dp100_private20']
+        j = ['0%', '80%']#, 'pub']
         #lab = ['minor', 'balance', 'major']
         #lab = ['3', '5', '8']
         #lab = ['70831', '35416', '17708']
@@ -213,8 +216,12 @@ if __name__ == '__main__':
         
         for i in lab:
             k.append(f'{i}')
-            
+        #file = open("/Users/sarinaxi/Desktop/Thesis/Framework/results/20240326_ST_pub/train_data.pkl", 'rb')
+        #data = pickle.load(file)
+        #file.close()    
+        #print(data)
         plot_stuff(config, k, j, f'20240326_dp100')
+        
         '''
 
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
