@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
 from transformers import BertTokenizer, BertForMaskedLM, BertForSequenceClassification
 from sklearn.metrics.pairwise import cosine_similarity
+import copy
 
 def get_data(filename, map_, downsample):
     df = pd.read_csv(filename)
@@ -99,11 +100,32 @@ def tokenize(tokenizer, data, max_len, bs, type, sampler, att, pre_train):
 def euclidean(a, b):
     return np.linalg.norm(a-b)
 
+def cos_sim(a, b):
+    return np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b))
+
+def custom(a, b):
+    const = 4
+    x = cos_sim(a, b)
+    return const*((1-np.exp(x-1))/np.exp(x-1))
+
+def custom_dissimilar(a, b):
+    const = 4
+    x = cos_sim(a, b)
+    return const*(np.exp(x)-1)
+
 def inverse_cos_sim(a, b):
-    return 1/np.dot(a, b)/np.linalg.norm(a)/np.linalg.norm(b)
+    return 1/np.exp(np.dot(a, b)/np.linalg.norm(a)/np.linalg.norm(b))
+
+def function_dissim(emb_x, emb_y, eps):
+    return np.exp(-eps*abs(custom_dissimilar(emb_x,emb_y)))
 
 def function(emb_x, emb_y, eps):
-    return np.exp(-eps*abs(euclidean(emb_x,emb_y)-1)/10)
+    return np.exp(-eps*abs(custom(emb_x,emb_y)))
+
+def sanitize_prob_dissim(eps, emb_x, emb_y, insensitive_embs):
+    cx = 1/np.sum([function_dissim(emb_x, i, eps) for i in insensitive_embs])
+    prob = cx*function_dissim(emb_x, emb_y, eps)
+    return prob
 
 def sanitize_prob(eps, emb_x, emb_y, insensitive_embs):
     cx = 1/np.sum([function(emb_x, i, eps) for i in insensitive_embs])
@@ -114,7 +136,6 @@ def sanitize_data(tokenizer, dataloader, sens_ratio, eps):
     voc = dict(tokenizer.vocab)
     voc = {v: k for k, v in voc.items()}
 
-    #print(dataloader[0])
     tok, label = dataloader
     flattened = tok.reshape(tok.shape[0]*tok.shape[1])
     
@@ -126,7 +147,7 @@ def sanitize_data(tokenizer, dataloader, sens_ratio, eps):
     model=BertForSequenceClassification.from_pretrained('bert-base-uncased')
     embedding_matrix = model.bert.embeddings.word_embeddings.weight.data.cpu().numpy()
     sensitive_embs, insensitive_embs = [], []
-    
+    '''
     for token in sensitive_toks:
         sensitive_embs.append(embedding_matrix[token])
     for token in insensitive_toks:
@@ -134,18 +155,23 @@ def sanitize_data(tokenizer, dataloader, sens_ratio, eps):
     
     sensitive = {k:v for k, v in zip(sensitive_toks, sensitive_embs)}
     insensitive = {k:v for k, v in zip(insensitive_toks, insensitive_embs)}
-    #print([voc[tok] for tok in sensitive_toks[-20:]])
-    #print([voc[tok] for tok in insensitive_toks[:20]])
+    '''
+    sensitive = {k:v for k, v in zip(sensitive_toks, embedding_matrix[sensitive_toks])}
+    insensitive = {k:v for k, v in zip(insensitive_toks, embedding_matrix[order])}
     tot_prob = 0
     count = 0
-    flag = False
+    
     for i in range(len(tok)):
-        sentence = [voc[tok[i][k].tolist()]for k in range(len(tok[i]))]
+        sentence = [voc[j.tolist()] for j in tok[i]]
+        flag = False
+        replaced = 0
         for j in range(len(tok[i])):
             sens_tok = tok[i][j].tolist()
             if sens_tok in sensitive_toks:
+                
                 emb_x = sensitive[sens_tok]
                 insens_tok = random.sample(list(insensitive_toks), 1)[0]
+                #print(voc[insens_tok])
                 emb_y = insensitive[insens_tok]
                 if eps != 0:
                     prob = sanitize_prob(eps, emb_x, emb_y, insensitive_embs)
@@ -153,10 +179,81 @@ def sanitize_data(tokenizer, dataloader, sens_ratio, eps):
                     prob = 0
                 tot_prob += prob
                 p = random.random()
-                if p < prob*2500:
+                if p < 2500*prob:
+                    replaced += 1
+                    flag = True
                     #print(f'\t{voc[sens_tok]} replaced by {voc[insens_tok]} {prob*2500}')
                     count += 1
                     tok[i][j] = insens_tok
+        
+        if flag:
+            if ('adam' in sentence) or ('ben' in sentence) or ('jill' in sentence) or ('alex' in sentence) or ('fred' in sentence) or ('claudia' in sentence):
+                if replaced == 1:
+                    print(i, j, replaced)
+                    print('Ori', sentence)
+                    print('New', [voc[j.tolist()] for j in tok[i]])
+              
+            
+                #else:
+                #    print('here')
+        
+    return tot_prob, count/len(tok)/len(tok[0]), (tok, label)
+
+def sanitize_data_dissim(tokenizer, dataloader, sens_ratio, eps):
+    voc = dict(tokenizer.vocab)
+    voc = {v: k for k, v in voc.items()}
+
+    tok, label = dataloader
+    flattened = tok.reshape(tok.shape[0]*tok.shape[1])
+    
+    bincount = np.bincount(flattened)/len(flattened)
+    order = np.argsort(bincount)[::-1]
+    non_zero_len = len(bincount[bincount!=0])
+    sensitive_toks = order[int(non_zero_len*(1-sens_ratio)):non_zero_len]
+    insensitive_toks = order[:int(non_zero_len*(1-sens_ratio))]
+    model=BertForSequenceClassification.from_pretrained('bert-base-uncased')
+    embedding_matrix = model.bert.embeddings.word_embeddings.weight.data.cpu().numpy()
+    sensitive_embs, insensitive_embs = {}, {}
+    
+    #for token in sensitive_toks:
+    #    sensitive_embs.append(embedding_matrix[token])
+    #insensitive_embs = sensitive_embs
+    #for token in insensitive_toks:
+    #    insensitive_embs.append(embedding_matrix[token])
+    
+    sensitive = {k:v for k, v in zip(sensitive_toks, embedding_matrix[sensitive_toks])}
+    insensitive = {k:v for k, v in zip(insensitive_toks, embedding_matrix[order])}
+
+    tot_prob = 0
+    count = 0
+    for i in range(len(tok)):
+        #ori = tok[i]
+        #flag = False
+        for j in range(len(tok[i])):
+            sens_tok = tok[i][j].tolist()
+            
+            #if (voc[sens_tok] == 'adam') | (voc[sens_tok] == 'eve') | (voc[sens_tok] == 'peter') | (voc[sens_tok] == 'alex') | (voc[sens_tok] == 'ben'):
+            #    flag = True
+            if sens_tok in sensitive_toks:
+                #flag = True
+                
+                emb_x = sensitive[sens_tok]
+                insens_tok = random.sample(list(insensitive_toks), 1)[0]
+                emb_y = insensitive[insens_tok]
+                if eps != 0:
+                    prob = sanitize_prob_dissim(eps, emb_x, emb_y, insensitive_embs)
+                else:
+                    prob = 0
+                tot_prob += prob
+                p = random.random()
+                if p < 2500*prob:
+                    count += 1
+                    tok[i][j] = insens_tok
+        
+        #if flag:
+        #    if ['adam', 'ben', 'jill', 'alex'].any() in [voc[j.tolist()] for j in tok[i]]:
+        #        print('Ori', [voc[j.tolist()] for j in ori])
+        #        print('New', [voc[j.tolist()] for j in tok[i]])
         
     return tot_prob, count/len(tok)/len(tok[0]), (tok, label)
 
@@ -189,6 +286,7 @@ if __name__ == '__main__':
     
     #filename = '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/data.jsonl'   
     #jsonObj = pd.read_json(path_or_buf=filename, lines=True)
+    '''
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     sensitive = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private69092.csv')
     local = sensitive[sensitive['label'].isin([0, 1, 2])]
@@ -196,8 +294,30 @@ if __name__ == '__main__':
                                                                         test_size=0.95,
                                                                         stratify=local['label'])
     test = (test_data.reset_index(drop=True), test_labels.reset_index(drop=True))
-    test, no_w = tokenize(tokenizer, test, 50, 32, 'test', RandomSampler, False, False)
-    tot_prob, replace_perc, test_data = sanitize_data(tokenizer, test, 0.85, 1000)
+    test, no_w = tokenize(tokenizer, test, 50, 128, 'test', RandomSampler, False, False)
+    tot_prob, replace_perc, test_data = sanitize_data(tokenizer, test, 0.85, 1)
+    print(f'Total Probability is {tot_prob}')
+    print(f'Replaced percentage is {replace_perc}')
+    '''
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    train = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_unseen69091.csv')
+    local = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private69092.csv')
+    data = pd.concat((local, train)).reset_index(drop=True)
+        
+    val_data, test_data, val_labels, test_labels = train_test_split(local['data'], local['label'],
+                                                                        test_size=0.95,
+                                                                        stratify=local['label'])
+    test_labels = data['label'][:80000]
+    test_data = data['data'][:80000]
+    print(f'Have sensitive dataset of size {len(test_data)}')
+    new_train = data[80000:].sample(n=10000).reset_index(drop=True)
+    #new_train = train.sample(n=len(test_labels)).reset_index(drop=True)
+    print(f'Train is size {len(new_train["label"])}')
+    train = (new_train['data'], new_train['label'])
+        
+    test = (test_data.reset_index(drop=True), test_labels.reset_index(drop=True))
+    test, no_w = tokenize(tokenizer, test, 50, 128, 'test', RandomSampler, False, False)
+    tot_prob, replace_perc, test_data = sanitize_data(tokenizer, test, 0.85, 1)
     print(f'Total Probability is {tot_prob}')
     print(f'Replaced percentage is {replace_perc}')
     

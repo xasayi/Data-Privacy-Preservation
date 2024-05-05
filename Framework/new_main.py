@@ -23,7 +23,7 @@ from sklearn.metrics import classification_report
 device = torch.device("cpu")
 from transformers import BertTokenizer
 
-SEED = 24
+SEED = 1024
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -93,9 +93,9 @@ def check_ptmodel(model, args, train_loader, valid_loader, test_data, train_weig
 
 def plot(train, folder, type):
     plt.figure(figsize=(10, 7))
-    color = ['r', 'b']#, 'g']#, 'm', 'c']#, 'y', 'cyan', 'pink']#, 'brown', 'teal']
-    format = ['-', '-', '--', '--']
-    colors = color[:len(train)]+color[:len(train)]
+    color = ['r', 'b', 'g', 'm', 'c', 'y']#, 'cyan', 'pink']#, 'brown', 'teal']
+    format = ['-', '-', '-', '-', '-', '-', '--', '--', '--','--', '--', '--']
+    colors = color[:len(train.items())]+color[:len(train.items())]
     for ind, (i, j) in enumerate(train.items()):
         print(format[ind], f'{i}', colors[ind])
         plt.plot(j, format[ind], label = f'{i}', color=colors[ind])
@@ -112,40 +112,64 @@ def plot_stuff(config, filenames, labels, name):
     args = config['StudentTeacher']
     datas = []
     for i in filenames:
-        file = open(f"/Users/sarinaxi/Desktop/Thesis/Framework/results/{i}/train_data.pkl", 'rb')
+        file = open(f"/Users/sarinaxi/Desktop/Thesis/Framework/new_results/{i}/train_data.pkl", 'rb')
         datas.append(pickle.load(file))
         file.close()
     #print(datas)
-    indices = np.array([7, 15, 23, 31, 39, 47, 55, 63, 71, 79])
-    indices = np.linspace(0,79,80).astype(int)
+    indices = np.array([7, 15, 23, 31, 39, 47, 55, 63, 71, 79])#, 87, 95, 103, 111, 119, 127, 135, 143, 151, 159])
+    indices = np.linspace(0,199,200).astype(int)
+    #print(datas)
 
     #train_loss = {f'Training {labels[i]}':np.mean(np.array(datas[i]['train_losses']).reshape(-1, 1), axis=1) for i in range(len(labels))}
     #train_loss = {f'Student {labels[i]}':datas[i]['valid_losses'][:25*args['epochs']:] for i in range(len(labels))}
     #train_loss = {f'Student {labels[i]}':np.array(datas[i]['valid_losses'][:10*args['epochs']])[indices] for i in range(len(labels))}
     #valid_loss = {labels[i]:datas[i]['valid_losses'][::args['epochs']] for i in len(labels)}
    
+
     #student_train_acc = {f'Training {labels[i]}':np.mean(np.array(datas[i]['student_train_accs']).reshape(-1, 1), axis=1) for i in range(len(labels))}
-    student_train_acc = {}
+    student_train_acc, student_noisy = {}, {}
     accs = []
+    #starts = [0.49]#, 0.49]#0.65, 0.84]
+    print(labels)
     for i in range(len(labels)):
         #print(i)
         #print(len(datas[i]['student_valid_accs']))
         #print(datas[i]['student_valid_accs'])
-        student_train_acc[f'Student {labels[i]}'] = np.array([0.49] + list(np.array(datas[i]['student_valid_accs'])[indices]))*100
+        student_train_acc[f'Student Valid {labels[i]}'] = np.array(list(np.array(datas[i]['student_valid_accs'])[indices]))*100
         accs.append(np.array(datas[i]['student_valid_accs'])[-1])
+        #student_train_acc[f'Student Train Noisy {labels[i]}'] = np.array(list(np.array(datas[i]['student_noisy_train_accs'])[indices]))*100
+        #student_train_acc[f'Student Train Raw {labels[i]}'] = np.array(list(np.array(datas[i]['student_raw_train_accs'])[indices]))*100
+        #student_train_acc[f'Teacher Train Noisy {labels[i]}'] = np.array(list(np.array(datas[i]['teacher_train_accs'])[indices]))*100
     #print(accs)
-    print(accs)
+    indes = np.array([19, 39, 59, 79, 99, 119, 139, 159, 179, 199])
+    for j in np.array(datas[i]['student_valid_accs'])[indes]:
+        print(j)
+    print('k')
+    for j in np.array(datas[i]['student_noisy_train_accs'])[indes]:
+        print(j)
+    print('k')
+    for j in np.array(datas[i]['student_raw_train_accs'])[indes]:
+        print(j)
+    print('k')
+    for j in np.array(datas[i]['teacher_valid_accs'])[indes]:
+        print(j)
+    print('k')
+    for j in np.array(datas[i]['teacher_train_accs'])[indes]:
+        print(j)
+    print('k')
+
     #print(labels)
+    train_loss = {}
     tea = []
     for i in range(len(labels)):
         #print([datas[i]['teacher_valid_accs'][-1]]*(len(np.array(datas[i]['student_valid_accs'])[indices])+1))
-        student_train_acc[f'Teacher {labels[i]}'] = np.array([datas[i]['teacher_valid_accs'][-1]]*(len(np.array(datas[i]['student_valid_accs'])[indices])))*100
+        student_train_acc[f'Teacher Valid {labels[i]}'] = np.array([datas[i]['teacher_valid_accs'][-1]]*(1+len(np.array(datas[i]['student_valid_accs'])[indices])))*100
         tea.append(datas[i]['teacher_valid_accs'][-1])
-        #student_train_acc[f'Validation {labels[i]}'] = np.mean(np.array(datas[i]['student_valid_accs']).reshape(-1, 10), axis=1)
-        #train_loss[f'Validation {labels[i]}'] = np.mean(np.array(datas[i]['valid_losses']).reshape(-1, 10), axis=1)
-    print(tea)
-    #plot(train_loss, "/Users/sarinaxi/Desktop/Thesis/Framework/results/", f'{name} Student Validation Loss Curve')
-    plot(student_train_acc, "/Users/sarinaxi/Desktop/Thesis/Framework/results/", f'{name} Student Validation Accuracy Curve')
+        #student_train_acc[f'Teacher Train {labels[i]}'] = np.array([datas[i]['teacher_train_accs']]*(1+len(np.array(datas[i]['student_valid_accs'])[indices])))*100
+        train_loss[f'Student {labels[i]}'] = np.array(datas[i]['valid_losses'])[indices]
+    #print(tea)
+    plot(train_loss, "/Users/sarinaxi/Desktop/Thesis/Framework/new_results/", f'{name} Student Validation Loss Curve')
+    plot(student_train_acc, "/Users/sarinaxi/Desktop/Thesis/Framework/new_results/", f'{name} Student Validation Accuracy Curve')
 
 def save_parameters(args, folder):
     with open(f'{folder}/parameters.txt', 'w') as f:
@@ -198,7 +222,43 @@ if __name__ == '__main__':
     map = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
     #map = {'ham': 0, 'spam':1}
     if plot_: ## NEED TO CHANGE VARIABLES THIS PART FOR PLOTTING
+        '''
+        tokenizer = BertTokenizer.from_pretrained(te_args['model'])
+        train = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_unseen69091.csv')
+        local = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private69092.csv')
+        data = pd.concat((local, train)).reset_index(drop=True)
         
+        #train = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/spam_data/df_remaining.csv')
+        #train, sensitive = train_test_split(train,test_size=0.5)
+        #train = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private69092.csv')
+        
+        #local = sensitive[sensitive['label'].isin([0, 1, 2])
+        val_data, test_data, val_labels, test_labels = train_test_split(local['data'], local['label'],
+                                                                        test_size=0.95,
+                                                                        stratify=local['label'])
+        test_labels = data['label'][:80000]
+        test_data = data['data'][:80000]
+        print(f'Have sensitive dataset of size {len(test_data)}')
+        new_train = data[80000:].sample(n=10000).reset_index(drop=True)
+        #new_train = train.sample(n=len(test_labels)).reset_index(drop=True)
+        print(f'Train is size {len(new_train["label"])}')
+        train = (new_train['data'], new_train['label'])
+
+        teacher = MyTransformer(block_size=50, vocab_size=30522, embeds_size=32,
+                        drop_prob=st_args['dropout'], num_classes=len(map), num_heads=8, n_layers=2, device=torch.device("cpu"))
+        train_dataloader, train_weight = tokenize(tokenizer, train, args['hidden'][0], args['batch_size'], 'train', RandomSampler, transformer, False)
+        valid = (val_data.reset_index(drop=True), val_labels.reset_index(drop=True))
+        test = (test_data.reset_index(drop=True), test_labels.reset_index(drop=True))
+        print(f'Train Size: {len(train[0])} | Valid Size: {len(valid[0])} | Test Size: {len(test[0])}')
+        valid_dataloader, no_weight = tokenize(tokenizer, valid, args['hidden'][0], args['batch_size'], 'valid', RandomSampler, transformer, False)
+        test_data, no_w = tokenize(tokenizer, test, args['hidden'][0], args['batch_size'], 'test', RandomSampler, transformer, False)
+        
+        print('TEST DATA')
+        tot_prob, replace_perc, test_data = sanitize_data(tokenizer, (test_data[0].clone(), test_data[1].clone()), 0.95, 0.00001)
+        print('Replcaed:', replace_perc)
+        check_ptmodel(model=teacher, args=te_args, train_loader=train_dataloader, valid_loader=valid_dataloader, 
+                      test_data=test_data, train_weight=train_weight, attention=transformer, active=active)
+        '''
         k = []
         #lab = ['1', '10', '100', '200', '500', '1000']
         #lab = ['0', '17708', '35416', '70831']#, '500', '1000']
@@ -209,18 +269,33 @@ if __name__ == '__main__':
         
         lab = ['20240326_ST_dp100','20240326_ST_dp100_private20']
         j = ['0%', '80%']#, 'pub']
-        #lab = ['minor', 'balance', 'major']
-        #lab = ['3', '5', '8']
-        #lab = ['70831', '35416', '17708']
-        #lab = ['100', '100_noised', '100_newseed', '100_noised_newseed']
         
+        #lab = ['1_unnoised', '1_noised', '100_unnoised', '100_noised', '1000_unnoised', '1000_noised']#lab = ['minor', 'balance', 'major']
+        lab = ['20240328_ST_dp1_unnoised', '20240328_ST_dp100_unnoised', '20240328_ST_dp1000_unnoised']#, 'Emotion_TS_pub']#lab = ['3', '5', '8']
+        j = ['dp:1', 'dp:100', 'dp:1000']#, 'pub']#lab = ['70831', '35416', '17708']
+        lab = ['1', '10', '100', '1000']
+        lab = ['20240329_ST_dp100_unnoised_private25']
+        
+        #lab = ['100', '100_noised', '100_newseed', '100_noised_newseed']
+        #lab = ['_minor', '_balance', '_major', '']
+        #j = ['25%', '50%', '75%', '100%']
+        # lab = ['20240328_ST_dp1_noised', '20240328_ST_dp1_unnoised', '20240328_ST_dp1000_noised', 'Emotion_TS_pub']#lab = ['3', '5', '8']
+        #j = ['dp:1', 'dp:100', 'dp:1000', 'pub']#lab = ['70831', '35416', '17708']
+        lab = ['17708', '35416', '70831']
+        j = ['18k', '35k', '70k']
+        lab = ['3', '5', '8']
+        lab = ['1', '10', '20', '30']
+        lab = ['1_95_b', '1_95_dissimilar_testa', '1_97', '1_97_dissimilar_testa', '1_99', '1_99_dissimilar_testa']
         for i in lab:
-            k.append(f'{i}')
+            k.append(f'emotions_dp{i}')
+            #k.append(i)
+        #k = ['emotions_dp1_95']
+        #lab = ['1']
         #file = open("/Users/sarinaxi/Desktop/Thesis/Framework/results/20240326_ST_pub/train_data.pkl", 'rb')
         #data = pickle.load(file)
         #file.close()    
         #print(data)
-        plot_stuff(config, k, j, f'20240326_dp100')
+        plot_stuff(config, k, lab, f'new_95')
         
         '''
 
@@ -260,34 +335,32 @@ if __name__ == '__main__':
         print('LSTM')
         print(report_lstm)
         ''' 
-
         
-        #data = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain70831.csv')
-        #half = data.sample(frac=0.5)
-        
-        #quarter = data.sample(frac=0.25)
-        ##print(len(quarter))
-        #half.to_csv(f'/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain{len(half)}.csv')
-        #quarter.to_csv(f'/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain{len(quarter)}.csv')
     elif teacher_student_bool:
+        #map = {'ham': 0, 'spam':1}
         tokenizer = BertTokenizer.from_pretrained(te_args['model'])
         train = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_unseen69091.csv')
-        sensitive = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private69092.csv')
+        local = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private69092.csv')
+        data = pd.concat((local, train)).reset_index(drop=True)
+        
+        #train = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/spam_data/df_remaining.csv')
+        #train, sensitive = train_test_split(train,test_size=0.5)
         #train = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private69092.csv')
-        local = sensitive[sensitive['label'].isin([0, 1, 2])]
-    
-        print(f'Have sensitive dataset of size {len(local["label"])}')
+        
+        #local = sensitive[sensitive['label'].isin([0, 1, 2])
         val_data, test_data, val_labels, test_labels = train_test_split(local['data'], local['label'],
                                                                         test_size=0.95,
                                                                         stratify=local['label'])
-        test_labels = test_labels[:20000]
-        test_data = test_data[:20000]
-        new_train = train.sample(n=len(test_labels)).reset_index(drop=True)
+        test_labels = data['label'][:80000]
+        test_data = data['data'][:80000]
+        print(f'Have sensitive dataset of size {len(test_data)}')
+        new_train = data[80000:].sample(n=10000).reset_index(drop=True)
+        #new_train = train.sample(n=len(test_labels)).reset_index(drop=True)
         print(f'Train is size {len(new_train["label"])}')
         train = (new_train['data'], new_train['label'])
         
-        #spam = get_data(filename='/Users/sarinaxi/Desktop/Thesis/Framework/data/spam_data/df_full.csv', map_={'ham': 0, 'spam':1}, downsample=False)
         '''
+        #spam = get_data(filename='/Users/sarinaxi/Desktop/Thesis/Framework/data/spam_data/df_full.csv', map_={'ham': 0, 'spam':1}, downsample=False)
         if half:
             print('half')
             spam = pd.concat((spam, spam, spam, spam, spam))
@@ -321,10 +394,10 @@ if __name__ == '__main__':
         student = MyTransformer(block_size=50, vocab_size=30522, embeds_size=32,
                         drop_prob=st_args['dropout'], num_classes=len(map), num_heads=8, n_layers=1, device=torch.device("cpu"))
         #print('Student')
-        check_ptmodel(model=student, args=st_args, train_loader=train_dataloader, valid_loader=valid_dataloader, 
-                      test_data=valid_dataloader, train_weight=train_weight, attention=transformer, active=active)
-        check_ptmodel(model=student, args=st_args, train_loader=train_dataloader, valid_loader=valid_dataloader, 
-                      test_data=test_data, train_weight=train_weight, attention=transformer, active=active)
+        #check_ptmodel(model=student, args=st_args, train_loader=train_dataloader, valid_loader=valid_dataloader, 
+        #              test_data=valid_dataloader, train_weight=train_weight, attention=transformer, active=active)
+        #check_ptmodel(model=student, args=st_args, train_loader=train_dataloader, valid_loader=valid_dataloader, 
+        #              test_data=test_data, train_weight=train_weight, attention=transformer, active=active)
 
         #teacher = LSTMModelMulti2(len(map), 30522, te_args['hidden'], te_args['dropout']).to(device)
         teacher = MyTransformer(block_size=50, vocab_size=30522, embeds_size=32,
@@ -337,11 +410,13 @@ if __name__ == '__main__':
         agent = StudentTeacher(teacher, student, args, device, map, args['similarity'], 
                             transformer, active, train_dataloader, valid_dataloader, test_data, train_weight)
         start = time.time()
-        train_losses, student_train_accs, valid_losses, student_valid_accs, teacher_train_accs, teacher_valid_accs, acc, train_label, valid_label = agent.run()
+        train_losses, student_train_accs, student_train_accs_raw, valid_losses, student_valid_accs, teacher_train_accs, teacher_valid_accs, acc, train_label, valid_label = agent.run()
         end = time.time()
         print(f'Took {round((end-start)/60, 3)} minutes')
+        '''
         dic = {'train_losses': train_losses, 
             'student_train_accs': student_train_accs, 
+            'student_raw_train_accs': student_train_accs_raw,
             'valid_losses': valid_losses, 
             'student_valid_accs': student_valid_accs, 
             'teacher_train_accs': acc, 
@@ -352,19 +427,26 @@ if __name__ == '__main__':
         f = open(f"{args['folder']}/train_data.pkl","wb")
         pickle.dump(dic,f)
         f.close()
+        '''
         plot_loss_acc(train_losses[::args['epochs']], valid_losses[::args['epochs']], 'Loss', args['folder'])
         plot_loss_acc(student_train_accs[::args['epochs']], student_valid_accs[::args['epochs']], 'Student Acc', args['folder'])
         plot_loss_acc(teacher_train_accs[::args['epochs']], teacher_valid_accs[::args['epochs']], 'Teacher Acc', args['folder'])
         plot_loss_acc(train_losses, valid_losses, 'Loss_all', args['folder'])
-        plot_loss_acc(student_train_accs, student_valid_accs, 'Student Acc_all', args['folder'])
+        plot_loss_acc(student_train_accs, student_valid_accs, 'Student Noisy Train Raw Valid', args['folder'])
+        plot_loss_acc(student_train_accs_raw, student_valid_accs, 'Student Raw Train Raw Valid', args['folder'])
+        plot_loss_acc(student_train_accs_raw, student_train_accs, 'Student Raw Train Noisy Train', args['folder'])
         plot_loss_acc(teacher_train_accs, teacher_valid_accs, 'Teacher Acc_all', args['folder'])
         plot_loss_acc(train_label, valid_label, 'Label Correctness', args['folder'])
         save_parameters(args, args['folder'])
 
     elif student_bool:
         
-        data_filename = '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain70831.csv'
-        #data_filename = '/Users/sarinaxi/Desktop/Thesis/Framework/data/spam_data/df_pre_train.csv'
+        #data_filename = '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain70831.csv'
+        #train = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_seen_pub252467.csv')
+        #sensitive = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private69092.csv')
+        
+        data_filename = '/Users/sarinaxi/Desktop/Thesis/Framework/data/spam_data/df_pre_train.csv'
+        data_filename = '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_seen_pub252467.csv'
         data = pd.read_csv(data_filename)
         #data = data[data['label'].isin([0, 1, 2])]
         #map = {'ham': 0, 'spam':1}
@@ -403,7 +485,7 @@ if __name__ == '__main__':
         valid_dataloader = DataLoader(valids, sampler=sampler, batch_size=st_args['batch_size'])
         
         student = MyTransformer(block_size=50, vocab_size=30522, embeds_size=32,
-                      drop_prob=st_args['dropout'], num_classes=len(map), num_heads=8, n_layers=2, device=torch.device("cpu"))
+                      drop_prob=st_args['dropout'], num_classes=len(map), num_heads=8, n_layers=1, device=torch.device("cpu"))
         #student = LSTMModelMulti2(len(map), 30522, st_args['hidden'], st_args['dropout']).to(device)
         #student = LSTMModel(30522, st_args['embed_size'], st_args['hidden_size'], st_args['dropout']).to(device)
         #train_weight = torch.concat((train_weight, torch.tensor([0, 0, 0])))
@@ -429,8 +511,8 @@ if __name__ == '__main__':
                                                                         test_size=0.95,
                                                                         stratify=local['label'])
         
-        test_labels = test_labels[:20000]
-        test_data = test_data[:20000]
+        #test_labels = test_labels[:20000]
+        #test_data = test_data[:20000]
 
         data = (pd.concat((test_data, train['data'])).reset_index(drop=True), pd.concat((test_labels, train['label'])).reset_index(drop=True))
         
@@ -457,8 +539,8 @@ if __name__ == '__main__':
         test_data, no_w = tokenize(tokenizer, test, sequence_len, batch_size, 'test', sampler, att, True)
         print(f'Train size: {len(train[0])} | Valid size: {len(valid[0])} | Test size: {len(test[0])}')
         teacher = MyTransformer(block_size=50, vocab_size=30522, embeds_size=32,
-                        drop_prob=te_args['dropout'], num_classes=len(map), num_heads=8, n_layers=2, device=torch.device("cpu"))
-        #teacher = LSTMModelMulti2(len(map), 30522, te_args['hidden'], te_args['dropout']).to(device)
+                        drop_prob=te_args['dropout'], num_classes=len(map), num_heads=8, n_layers=1, device=torch.device("cpu"))
+        teacher = LSTMModelMulti2(len(map), 30522, te_args['hidden'], te_args['dropout']).to(device)
         #teacher = LSTMModel(30522, te_args['embed_size'], te_args['hidden_size'], te_args['dropout']).to(device)
         start = time.time()
         pre_train(model=teacher, args=te_args, train_loader=train_dataloader, valid_loader=valid_dataloader,
