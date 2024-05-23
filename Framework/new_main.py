@@ -338,6 +338,7 @@ if __name__ == '__main__':
         
     elif teacher_student_bool:
         #map = {'ham': 0, 'spam':1}
+
         tokenizer = BertTokenizer.from_pretrained(te_args['model'])
         train = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_unseen69091.csv')
         local = pd.read_csv('/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_private69092.csv')
@@ -402,18 +403,22 @@ if __name__ == '__main__':
         #teacher = LSTMModelMulti2(len(map), 30522, te_args['hidden'], te_args['dropout']).to(device)
         teacher = MyTransformer(block_size=50, vocab_size=30522, embeds_size=32,
                         drop_prob=st_args['dropout'], num_classes=len(map), num_heads=8, n_layers=2, device=torch.device("cpu"))
-        print('Teacher')
+        print('Teacher on test')
         check_ptmodel(model=teacher, args=te_args, train_loader=train_dataloader, valid_loader=valid_dataloader, 
                       test_data=test_data, train_weight=train_weight, attention=transformer, active=active)
+        print('Teacher on valid')
+        check_ptmodel(model=teacher, args=te_args, train_loader=train_dataloader, valid_loader=valid_dataloader, 
+                      test_data=valid_dataloader, train_weight=train_weight, attention=transformer, active=active)
         
         #-------------------------Student Teacher Finetuning------------------------
+        ''' 
         agent = StudentTeacher(teacher, student, args, device, map, args['similarity'], 
                             transformer, active, train_dataloader, valid_dataloader, test_data, train_weight)
         start = time.time()
         train_losses, student_train_accs, student_train_accs_raw, valid_losses, student_valid_accs, teacher_train_accs, teacher_valid_accs, acc, train_label, valid_label = agent.run()
         end = time.time()
         print(f'Took {round((end-start)/60, 3)} minutes')
-        '''
+        
         dic = {'train_losses': train_losses, 
             'student_train_accs': student_train_accs, 
             'student_raw_train_accs': student_train_accs_raw,
@@ -427,7 +432,7 @@ if __name__ == '__main__':
         f = open(f"{args['folder']}/train_data.pkl","wb")
         pickle.dump(dic,f)
         f.close()
-        '''
+        
         plot_loss_acc(train_losses[::args['epochs']], valid_losses[::args['epochs']], 'Loss', args['folder'])
         plot_loss_acc(student_train_accs[::args['epochs']], student_valid_accs[::args['epochs']], 'Student Acc', args['folder'])
         plot_loss_acc(teacher_train_accs[::args['epochs']], teacher_valid_accs[::args['epochs']], 'Teacher Acc', args['folder'])
@@ -438,7 +443,7 @@ if __name__ == '__main__':
         plot_loss_acc(teacher_train_accs, teacher_valid_accs, 'Teacher Acc_all', args['folder'])
         plot_loss_acc(train_label, valid_label, 'Label Correctness', args['folder'])
         save_parameters(args, args['folder'])
-
+        '''
     elif student_bool:
         
         #data_filename = '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain70831.csv'
