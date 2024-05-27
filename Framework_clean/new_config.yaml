@@ -1,5 +1,5 @@
-filename_pretrain: '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain.csv'
-filename_train: '/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_remaining.csv'
+filename_pretrain: '/Users/sarinaxi/Desktop/Thesis/Framework_clean/data/sentiment_data/huggingface_pretrain.csv'
+filename_train: '/Users/sarinaxi/Desktop/Thesis/Framework_clean/data/sentiment_data/huggingface_remaining.csv'
 student_bool: True
 teacher_bool: True
 teacher_student_bool: True
@@ -42,7 +42,7 @@ TeacherPT:
 StudentTeacher:
     folder: 'Framework/new_results/0new_emotions_dp1_95'
     # pre_train_file null if no pre-training
-    pre_train_file: null #'/Users/sarinaxi/Desktop/Thesis/Framework/data/sentiment_data/huggingface_pretrain70831.csv' #'/Users/sarinaxi/Desktop/Thesis/Framework/data/spam_data/df_pre_train.csv' #
+    pre_train_file: null #'/Users/sarinaxi/Desktop/Thesis/Framework_clean/data/sentiment_data/huggingface_pretrain70831.csv' #'/Users/sarinaxi/Desktop/Thesis/Framework/data/spam_data/df_pre_train.csv' #
     name: 'student_teacher.pt' 
     factor: 1 # amount of public data to sample from compared to private data 
     dropout: 0.1

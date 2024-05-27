@@ -5,11 +5,11 @@ import pandas as pd
 import numpy as np
 import random
 from transformers import AdamW
-from Framework.similarity import find_similar
+from Framework_clean.similarity import find_similar
 from scipy.stats import entropy
-from Framework.new_process_data import sanitize_data, tokenize, sanitize_data_dissim
+from Framework_clean.new_process_data import sanitize_data, tokenize, sanitize_data_dissim
 from transformers import BertTokenizer
-from Framework.classifier import model_performance
+from Framework_clean.classifier import model_performance
 from torch.utils.data import RandomSampler
 
 class StudentTeacher(nn.Module):
