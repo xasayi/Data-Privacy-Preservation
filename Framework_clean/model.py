@@ -1,12 +1,13 @@
+'''
+Define the models used for the experiments
+'''
 import torch
 from torch import nn
 
-import torch.nn.functional as F
-import torch.nn.init as init
-
-from torch.autograd import Variable
-
 class EmbedModel(nn.Module):
+    '''
+    Model that mainly consists of embedding layers  
+    '''
     def __init__(self, vocab_size, embedding_size, linear_size, dropout):
         super().__init__()
         self.embed = nn.Embedding(vocab_size, embedding_size, max_norm=True)
@@ -17,6 +18,7 @@ class EmbedModel(nn.Module):
         self.softmax = nn.LogSoftmax()
 
     def forward(self, input_):
+        '''forward pass'''
         x_embed = self.embed(input_)
         x_embed = torch.mean(x_embed, dim=1)
         fc1 = self.linear1(x_embed)
@@ -27,6 +29,9 @@ class EmbedModel(nn.Module):
         return fc1, fc2, pred
 
 class LSTMModel(nn.Module):
+    '''
+    Basic LSTM models 
+    '''
     def __init__(self, vocab_size, embedding_size, linear_size, dropout):
         super().__init__()
         self.embed = nn.Embedding(vocab_size, embedding_size, max_norm=True)
@@ -38,6 +43,7 @@ class LSTMModel(nn.Module):
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, input_):
+        '''forward pass'''
         x_embed = self.embed(input_)
         x_embed = torch.mean(x_embed, dim=1)
         lstm1, _ = self.lstm1(x_embed.view(len(x_embed), -1))
@@ -49,6 +55,9 @@ class LSTMModel(nn.Module):
         return lstm2, pred
 
 class LSTMModelMulti(nn.Module):
+    '''
+    Bidirectional LSTM models 
+    '''
     def __init__(self, size, vocab_size, hidden, dropout):
         super().__init__()
         self.embed = nn.Embedding(vocab_size, hidden[0], max_norm=True)
@@ -63,6 +72,7 @@ class LSTMModelMulti(nn.Module):
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, input_):
+        '''forward pass'''
         x_embed = self.embed(input_)
         x_embed = torch.mean(x_embed, dim=1)
         lstm1, _ = self.lstm1(x_embed.view(len(x_embed), -1))
@@ -76,6 +86,9 @@ class LSTMModelMulti(nn.Module):
         return lstm2, pred
 
 class LSTMModelMulti2(nn.Module):
+    '''
+    Larger bidirectional LSTM model 
+    '''
     def __init__(self, size, vocab_size, hidden, dropout):
         super().__init__()
         self.embed = nn.Embedding(vocab_size, hidden[0], max_norm=True)
@@ -94,6 +107,7 @@ class LSTMModelMulti2(nn.Module):
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, input_):
+        '''forward pass'''
         x_embed = self.embed(input_)
         x_embed = torch.mean(x_embed, dim=1)
         lstm1, _ = self.lstm1(x_embed.view(len(x_embed), -1))

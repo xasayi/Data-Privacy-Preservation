@@ -1,69 +1,65 @@
-filename_pretrain: '/Users/sarinaxi/Desktop/Thesis/Framework_clean/data/sentiment_data/huggingface_pretrain.csv'
-filename_train: '/Users/sarinaxi/Desktop/Thesis/Framework_clean/data/sentiment_data/huggingface_remaining.csv'
+filename_pretrain: 'Framework_clean/data/sentiment_data/huggingface_pretrain.csv'
+filename_train: 'Framework_clean/data/sentiment_data/huggingface_remaining.csv'
 student_bool: True
 teacher_bool: True
 teacher_student_bool: True
 transformer: False
 active: False
-pt: False
+pt: False # whether to pre train or not
 plot_graphs: False
-public_noise: False
-half: False
 
 StudentPT:
-    folder: 'Framework/results/Emotions_PT_210k' #'Spam_PT_S
+    folder: 'Framework/results/Emotions_PT_210k'
     name: 'student.pt'
     dropout: 0.1
     lr: 0.0005
     batch_size: 128
     downsample: False
     epochs: 20
-    hidden: [50, 128, 64, 32, 16, 32]
 
+    hidden: [50, 128, 64, 32, 16, 32]
     input_embeding_size: 40
     hidden_size: 10
     
-    
 TeacherPT:
-    folder: 'Framework/results/Emotion_PT_T' #Spam_PT_T
+    folder: 'Framework/results/Emotion_PT_T'
     name: 'teacher.pt'
     dropout: 0.1
     lr: 0.0005
     batch_size: 128
-    epochs: 20
     downsample: False
-    hidden: [50, 128, 64, 32, 16, 32]
+    epochs: 20
     model: 'bert-base-uncased'
 
+    hidden: [50, 128, 64, 32, 16, 32]
     input_embeding_size: 40
     hidden_size: 10
     embed_size: 20
     
 StudentTeacher:
-    folder: 'Framework/new_results/0new_emotions_dp1_95'
-    # pre_train_file null if no pre-training
-    pre_train_file: null #'/Users/sarinaxi/Desktop/Thesis/Framework_clean/data/sentiment_data/huggingface_pretrain70831.csv' #'/Users/sarinaxi/Desktop/Thesis/Framework/data/spam_data/df_pre_train.csv' #
+    folder: 'Framework_clean/new_results/0new_emotions_dp1_95'
     name: 'student_teacher.pt' 
-    factor: 1 # amount of public data to sample from compared to private data 
     dropout: 0.1
     lr: 0.0005
-    wd: 0.0001 # weight decay s
-    eps: 1
+    batch_size: 128
+    epochs: 20
+    model: 'bert-base-uncased'
+
+    # pre_train_file null if no pre-training
+    pre_train_file: null # filepath
+    dp: True # whether or not to use differential privacy, overwrites eps
+    factor: 1 # amount of public data to sample from compared to private data 
+    wd: 0.0001 # weight decay
+    eps: 1 # epsilon for differential privacy
     sens_ratio: 0.95 # amount of vocabulary that is defined as sensitive 
 
     queries: 7000
-    epochs: 20
     iters: 10
-    dp: True
-    public: False
-
-    model: 'bert-base-uncased'
-    batch_size: 128
-    input_size: 50
-    hidden: [50, 128, 64, 32, 16, 32]
-    downsample: False
+    public: False # whether or not to use public data
+    downsample: False # whether or not to downsample the data
     similarity: False # always null 
 
+    hidden: [50, 128, 64, 32, 16, 32]
     input_embeding_size: 40
     hidden_size: 10
     embed_size: 20

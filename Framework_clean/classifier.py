@@ -1,5 +1,5 @@
 '''
-Classifier class 
+Classifier class to run pre-train student or teacher
 '''
 import torch
 from torch import nn
@@ -22,10 +22,10 @@ class Classifier(nn.Module):
 
         self.model = model
         self.optimizer = AdamW(self.model.parameters(), lr = lr, weight_decay=weight_decay)
+        self.loss = nn.NLLLoss(weights)
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
         self.test_data = test_data
-        self.loss = nn.NLLLoss(weights)
 
         self.active = active
         self.epochs = epochs
@@ -34,13 +34,13 @@ class Classifier(nn.Module):
         self.weight_path = weight_path
         self.folder = folder
         self.device = device
+        self.inds = None
+
         if self.active:
-            # None if not using active learning 
             self.inds = [np.linspace(0, len(i[0])-1, len(i[0])) for i in self.train_dataloader]
-        else:
-            self.inds = None
 
     def get_loss(self, sent_id, labels, train=True):
+        '''Get the loss during training'''
         preds = self.model(sent_id)[-1]
         loss = self.loss(preds, labels)
         total_loss = loss.item()
@@ -50,22 +50,14 @@ class Classifier(nn.Module):
             self.optimizer.step()
         return total_loss, preds
 
-    def get_loss_mask(self, sent_id, labels, mask, train=True):
-        preds = self.model(sent_id, mask)
-        loss = self.loss(preds, labels)
-        total_loss = loss.item()
-        if train:
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-            self.optimizer.step()
-        return total_loss, preds
-
     def get_acc(self, preds, labels):
+        '''Get accuracy of the function'''
         preds = preds.argmax(dim=1)
         accuracy = np.sum([1 if preds[i]==labels[i] else 0 for i in range(len(labels))])/len(labels)
         return accuracy
 
     def train(self):
+        '''Training function for the model'''
         self.model.train()
         total_loss, total_accuracy = 0, 0
         for step, batch in enumerate(self.train_dataloader):
@@ -87,6 +79,7 @@ class Classifier(nn.Module):
         return avg_loss, avg_acc
 
     def sample_entropy(self, input_):
+        '''Use entropy to sample points (active learning)'''
         probabilities = np.exp(input_.detach().cpu().numpy())
         entropies = entropy(probabilities.T)
         order = np.argsort(entropies)[::-1]
@@ -130,6 +123,7 @@ class Classifier(nn.Module):
         return avg_loss, avg_acc
 
     def eval(self):
+        '''Evaluation function for the model'''
         print("\nEvaluating...")
         self.model.eval()
         total_loss, total_accuracy = 0, 0
@@ -151,6 +145,7 @@ class Classifier(nn.Module):
         return avg_loss, avg_acc
 
     def run(self):
+        '''Run to train and evaluate the model'''
         best_valid_loss = float('inf')
         train_losses, valid_losses = [], []
         train_accs, valid_accs = [], []
@@ -179,12 +174,10 @@ class Classifier(nn.Module):
             print(f'Validation Acc: {valid_acc:.3f}')
         return train_losses, train_accs, valid_losses, valid_accs
 
-def model_performance(args, model, test_seq, test_y, device, folder, mask=None):
+def model_performance(args, model, test_seq, test_y, device, folder):
+    '''Get the performance of the model on the test set'''
     with torch.no_grad():
-        if mask:
-            preds = model(torch.tensor(test_seq).to(device), torch.tensor(mask).to(device))
-        else:
-            preds = model(torch.tensor(test_seq).to(device))[-1]
+        preds = model(torch.tensor(test_seq).to(device))[-1]
     preds = preds.argmax(dim=1).detach().cpu().numpy()
     with open(f'{folder}/results.txt', 'w') as file:
         report = classification_report(test_y, preds)

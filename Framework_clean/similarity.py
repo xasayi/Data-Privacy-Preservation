@@ -1,3 +1,6 @@
+'''
+Function to find similar public samples for each private sample in a batch
+'''
 import sys
 import torch
 import numpy as np
@@ -7,13 +10,18 @@ sys.path.insert(0, '/Users/sarinaxi/Desktop/Thesis')
 device = torch.device("mps")
 
 def cosine(a, b):
-    angle = np.dot(a.detach().cpu().numpy(), b.detach().cpu().numpy())/ (norm(a.detach().cpu().numpy())*norm(b.detach().cpu().numpy()))
+    '''cosine similarity'''
+    a_norm = norm(a.detach().cpu().numpy())
+    b_norm = norm(b.detach().cpu().numpy())
+    angle = np.dot(a.detach().cpu().numpy(),b.detach().cpu().numpy())/(a_norm*b_norm)
     return angle
 
 def euclidean(a, b):
-    return np.sqrt(2-2*cosine(a.detach().cpu().numpy(), b.detach().cpu().numpy()))
+    '''euclidean'''
+    return np.sqrt(a.detach().cpu().numpy() - b.detach().cpu().numpy())
 
 def find_similar(pri_batch, pub_pool, function):
+    '''find similar public samples from a public pool for each sample in a private batch'''
     if function == 'cosine':
         f = cosine
     if function == 'euclid':
@@ -29,13 +37,3 @@ def find_similar(pri_batch, pub_pool, function):
             index = np.argmax(similarities)
         indices.append(index)
     return indices
-
-if __name__ == '__main__':
-    a = np.array([1, 2])
-    b = np.array([3, 2])
-    print(cosine(a, b))
-    print(euclidean(a, b))
-    pri_batch = np.array([[1,2,3],[1,2,2], [3,2,1]])
-    pub_pool = np.array([[1,2,3],[2,3,4],[1,2,8],[7,2,3],[2,5,4],[0,2,8]])
-    indices = find_similar(pri_batch, pub_pool, 'euclid')
-    print(indices)
